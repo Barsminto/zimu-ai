@@ -1,1 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Browser-local zero-knowledge file encryption. Passwords and plaintext never leave your device." />
+  <meta name="referrer" content="no-referrer" />
+  <title>E2EE Vault</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ink: {
+              950: '#070a12',
+              900: '#0c1220',
+              800: '#121a2b',
+              700: '#1a2438',
+              600: '#243049',
+            },
+            accent: {
+              DEFAULT: '#5b8cff',
+              soft: '#8fb0ff',
+              dim: '#3d6fe0',
+            },
+            ok: '#34d399',
+            danger: '#f87171',
+            warn: '#fbbf24',
+          },
+          boxShadow: {
+            glow: '0 0 0 1px rgba(91,140,255,0.18), 0 18px 50px rgba(0,0,0,0.45)',
+          },
+          fontFamily: {
+            sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'PingFang SC', 'Noto Sans SC', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { background: #070a12; }
+    body {
+      background-image:
+        radial-gradient(1200px 600px at 10% -10%, rgba(91,140,255,0.16), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(52,211,153,0.08), transparent 50%),
+        radial-gradient(700px 400px at 50% 100%, rgba(91,140,255,0.06), transparent 55%);
+      background-attachment: fixed;
+    }
+    .glass {
+      background: linear-gradient(180deg, rgba(18,26,43,0.92), rgba(12,18,32,0.92));
+      border: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(10px);
+    }
+    .drop-active {
+      border-color: rgba(91,140,255,0.8) !important;
+      background: rgba(91,140,255,0.08) !important;
+      box-shadow: inset 0 0 0 1px rgba(91,140,255,0.25);
+    }
+    .progress-bar { transition: width 180ms ease; }
+    .tab-active {
+      background: rgba(91,140,255,0.14);
+      color: #8fb0ff;
+      border-color: rgba(91,140,255,0.35);
+    }
+    .lang-active {
+      background: rgba(91,140,255,0.18);
+      color: #e2e8f0;
+    }
+    .shake { animation: shake 0.4s linear; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+    .sr-only-file {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0);
+      white-space: nowrap; border: 0;
+    }
+  </style>
+</head>
+<body class="h-full text-slate-200 font-sans antialiased">
+  <div class="min-h-full flex flex-col">
+    <header class="border-b border-white/5 bg-ink-950/70 backdrop-blur sticky top-0 z-20">
+      <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="h-9 w-9 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-accent-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="5" y="10" width="14" height="10" rx="2"/>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+              <circle cx="12" cy="15" r="1.2" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white truncate" data-i18n="brand">E2EE Vault</h1>
+            <p class="text-xs text-slate-400 truncate" data-i18n="brandSub">Local zero-knowledge · AES-GCM-256 · Free</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="inline-flex rounded-full border border-white/10 bg-white/5 p-0.5 text-[11px]" role="group" aria-label="Language">
+            <button type="button" id="lang-zh" class="px-2.5 py-1 rounded-full transition" data-lang="zh-CN">中文</button>
+            <button type="button" id="lang-en" class="px-2.5 py-1 rounded-full transition" data-lang="en">EN</button>
+          </div>
+          <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border border-ok/30 bg-ok/10 text-ok">
+            <span class="h-1.5 w-1.5 rounded-full bg-ok"></span>
+            <span data-i18n="badgeNoUpload">No upload</span>
+          </span>
+          <span class="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-slate-300">≤ 50 MB</span>
+        </div>
+      </div>
+    </header>
 
+    <main class="flex-1 w-full max-w-3xl mx-auto px-4 py-8 sm:py-10">
+      <section class="mb-6 sm:mb-8">
+        <h2 class="text-2xl sm:text-3xl font-semibold text-white tracking-tight" data-i18n="heroTitle">End-to-end file encryption</h2>
+        <p class="mt-2 text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl" data-i18n="heroDesc">
+          Encrypt and decrypt entirely in your browser sandbox. Passwords are stretched with PBKDF2 (100,000 iterations) and sealed with AES-GCM-256. Filenames and contents stay on this device.
+        </p>
+      </section>
+
+      <section class="glass rounded-2xl shadow-glow overflow-hidden">
+        <div class="flex border-b border-white/5 p-2 gap-2 bg-ink-900/50">
+          <button id="tab-encrypt" type="button" class="tab-active flex-1 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium transition" data-i18n="tabEncrypt">Encrypt</button>
+          <button id="tab-decrypt" type="button" class="flex-1 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition" data-i18n="tabDecrypt">Decrypt</button>
+        </div>
+
+        <div class="p-5 sm:p-6 space-y-5">
+          <div>
+            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelFile">File</label>
+            <div id="dropzone" class="relative rounded-2xl border border-dashed border-white/10 bg-ink-950/60 hover:border-white/20 transition cursor-pointer px-4 py-10 text-center">
+              <input id="file-input" class="sr-only-file" type="file" />
+              <div class="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0 4 4m-4-4-4 4M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" />
+                </svg>
+              </div>
+              <p class="text-sm text-slate-200 font-medium" data-i18n="dropTitle">Drop a file here, or click to choose</p>
+              <p id="drop-hint" class="mt-1 text-xs text-slate-500" data-i18n="dropHintEncrypt">Free tier ≤ 50 MB · output .enc</p>
+              <div id="file-chip" class="hidden mt-4 inline-flex max-w-full items-center gap-2 rounded-xl border border-accent/25 bg-accent/10 px-3 py-2 text-left">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-accent-soft shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M7 4h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+                </svg>
+                <div class="min-w-0">
+                  <p id="file-name" class="text-xs font-medium text-accent-soft truncate"></p>
+                  <p id="file-meta" class="text-[11px] text-slate-400"></p>
+                </div>
+                <button id="file-clear" type="button" class="ml-1 rounded-lg p-1 text-slate-400 hover:text-white hover:bg-white/10" data-i18n-aria="clearFile" aria-label="Clear file">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="password" class="block text-xs font-medium uppercase tracking-wider text-slate-500" data-i18n="labelPassword">Password</label>
+              <button id="toggle-password" type="button" class="text-[11px] text-slate-400 hover:text-accent-soft transition" data-i18n="showPassword">Show</button>
+            </div>
+            <input
+              id="password"
+              type="password"
+              autocomplete="new-password"
+              spellcheck="false"
+              data-i18n-placeholder="phPassword"
+              placeholder="Enter a strong password (never uploaded)"
+              class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 pr-12 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
+            />
+            <p id="password-hint" class="mt-2 text-[11px] text-slate-500" data-i18n="hintPasswordEncrypt">Use 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.</p>
+          </div>
+
+          <div id="confirm-wrap">
+            <label for="password-confirm" class="block text-xs font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelConfirm">Confirm password</label>
+            <input
+              id="password-confirm"
+              type="password"
+              autocomplete="new-password"
+              spellcheck="false"
+              data-i18n-placeholder="phConfirm"
+              placeholder="Re-enter password"
+              class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
+            />
+          </div>
+
+          <div id="status" class="hidden rounded-xl border px-3.5 py-3 text-sm leading-relaxed" role="status" aria-live="polite"></div>
+
+          <div id="progress-wrap" class="hidden">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+              <span id="progress-label" data-i18n="progressWorking">Working…</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div id="progress-bar" class="progress-bar h-full w-0 rounded-full bg-gradient-to-r from-accent-dim to-accent-soft"></div>
+            </div>
+          </div>
+
+          <button
+            id="action-btn"
+            type="button"
+            disabled
+            class="w-full rounded-xl bg-accent hover:bg-accent-dim disabled:bg-ink-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-medium text-sm py-3.5 transition shadow-lg shadow-accent/10"
+            data-i18n="btnEncrypt"
+          >
+            Encrypt
+          </button>
+
+          <p class="text-[11px] text-center text-slate-500 leading-relaxed" data-i18n="footerTier">
+            Free · no login · ≤ 50 MB per file · Pro streaming up to 2 GB coming soon
+          </p>
+        </div>
+      </section>
+
+      <section class="mt-8 grid sm:grid-cols-3 gap-3">
+        <div class="rounded-2xl border border-white/5 bg-ink-900/40 p-4">
+          <p class="text-xs font-semibold text-slate-200" data-i18n="cardKdfTitle">PBKDF2 · 100k</p>
+          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardKdfDesc">16-byte random salt + SHA-256 stretching resists brute force and rainbow tables.</p>
+        </div>
+        <div class="rounded-2xl border border-white/5 bg-ink-900/40 p-4">
+          <p class="text-xs font-semibold text-slate-200" data-i18n="cardAeadTitle">AES-GCM-256</p>
+          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardAeadDesc">Authenticated encryption aborts immediately on wrong password or tampering.</p>
+        </div>
+        <div class="rounded-2xl border border-white/5 bg-ink-900/40 p-4">
+          <p class="text-xs font-semibold text-slate-200" data-i18n="cardZkTitle">Zero-knowledge local</p>
+          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardZkDesc">Static site, no backend, no upload — browser Web Crypto only.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-white/5 py-6 text-center text-[11px] text-slate-600">
+      <p data-i18n="footerLine1">E2EE Vault Free · all computation stays in your browser</p>
+      <p class="mt-1" data-i18n="footerLine2">Protocol: PBKDF2-SHA256 / AES-256-GCM · container format v1 (.enc)</p>
+    </footer>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ---------------------------------------------------------------------------
+    // i18n
+    // ---------------------------------------------------------------------------
+    const I18N = {
+      'zh-CN': {
+        brand: 'E2EE Vault',
+        brandSub: '本地零知识 · AES-GCM-256 · 免费版',
+        badgeNoUpload: '零上传',
+        heroTitle: '文件端到端加密',
+        heroDesc: '在浏览器沙盒内完成加解密。密码经 PBKDF2（100,000 次）拉伸，使用 AES-GCM-256 认证加密。文件名与内容均被密封；明文与密钥不会离开本机。',
+        tabEncrypt: '加密文件',
+        tabDecrypt: '解密文件',
+        labelFile: '选择文件',
+        dropTitle: '拖拽文件到此处，或点击选择',
+        dropHintEncrypt: '免费版单文件上限 50 MB · 加密输出 .enc',
+        dropHintDecrypt: '选择 .enc 文件 · 免费版上限 50 MB',
+        clearFile: '清除文件',
+        labelPassword: '密码',
+        showPassword: '显示',
+        hidePassword: '隐藏',
+        phPassword: '输入自定义强密码（不会上传）',
+        phConfirm: '再次输入密码',
+        hintPasswordEncrypt: '建议 12 位以上，混合大小写、数字与符号。丢失密码将无法恢复文件。',
+        hintPasswordDecrypt: '输入加密时使用的密码。密码错误或文件被篡改将无法解密。',
+        labelConfirm: '确认密码',
+        progressWorking: '处理中…',
+        btnEncrypt: '开始加密',
+        btnDecrypt: '开始解密',
+        btnEncrypting: '加密中…',
+        btnDecrypting: '解密中…',
+        footerTier: '免费版无需登录 · 单文件 ≤ 50 MB · 付费版支持最大 2 GB 流式处理（即将推出）',
+        cardKdfTitle: 'PBKDF2 · 100k',
+        cardKdfDesc: '随机 16B 盐值 + SHA-256 迭代拉伸，抗暴破与彩虹表。',
+        cardAeadTitle: 'AES-GCM-256',
+        cardAeadDesc: 'AEAD 认证加密，密文篡改或密码错误将立即熔断。',
+        cardZkTitle: '零知识本地',
+        cardZkDesc: '纯静态站，无后端、无上传；Web Crypto 内核级 API。',
+        footerLine1: 'E2EE Vault 免费版 · 所有运算均在你的浏览器中完成',
+        footerLine2: '协议：PBKDF2-SHA256 / AES-256-GCM · 文件格式 v1 (.enc)',
+        docTitle: 'E2EE Vault · 本地零知识文件加解密',
+        dropAria: '选择或拖拽文件',
+        // runtime messages
+        errNeedPassword: '请输入密码。',
+        errPasswordMismatch: '两次输入的密码不一致。',
+        warnWeakPassword: '密码较短，建议使用 12 位以上强密码。仍将继续加密…',
+        infoEncrypting: '正在本地加密，请勿关闭页面…',
+        infoDecrypting: '正在本地解密，请勿关闭页面…',
+        okEncrypted: '加密完成，已开始下载：{name}。请妥善保管密码，丢失无法恢复。',
+        okDecrypted: '解密成功，已开始下载：{name}',
+        errCryptoFail: '密码错误或数据遭受篡改，已中止解密。',
+        errFreeLimit: '免费版限制单文件 ≤ 50 MB（当前 {size}）。请压缩后重试。',
+        errFreeLimitShort: '免费版限制单文件 ≤ 50 MB。请压缩后重试或升级付费版。',
+        errFreeLimitEnc: '免费版限制单文件 ≤ 50 MB。',
+        errFreeLimitPlain: '解密内容超过免费版 50 MB 限制。',
+        errTooShort: '文件过短，不是有效的 .enc 容器。',
+        errMetaLen: '无效的 Meta 长度，文件可能已损坏。',
+        errUnsupportedVer: '不支持的 .enc 版本：v{v}',
+        errNoWebCrypto: '当前浏览器不支持 Web Crypto API。请使用最新版 Chrome / Firefox / Safari / Edge，并在 HTTPS 或 localhost 下打开。',
+        warnMaybeNotEnc: '所选文件可能不是 .enc 容器，仍可尝试解密。',
+        progressRead: '读取文件…',
+        progressReadEnc: '读取 .enc 文件…',
+        progressSalt: '生成盐值与 IV…',
+        progressKdf: 'PBKDF2 密钥衍生（100,000 次）…',
+        progressPack: '打包元数据与明文…',
+        progressEncrypt: 'AES-GCM-256 加密…',
+        progressParse: '解析文件头…',
+        progressDecrypt: 'AES-GCM 完整性校验与解密…',
+        progressRestore: '还原文件名与内容…',
+        progressDownload: '准备下载…',
+        progressDone: '完成',
+        unnamedFile: '未命名文件',
+      },
+      en: {
+        brand: 'E2EE Vault',
+        brandSub: 'Local zero-knowledge · AES-GCM-256 · Free',
+        badgeNoUpload: 'No upload',
+        heroTitle: 'End-to-end file encryption',
+        heroDesc: 'Encrypt and decrypt entirely in your browser sandbox. Passwords are stretched with PBKDF2 (100,000 iterations) and sealed with AES-GCM-256. Filenames and contents stay on this device.',
+        tabEncrypt: 'Encrypt',
+        tabDecrypt: 'Decrypt',
+        labelFile: 'File',
+        dropTitle: 'Drop a file here, or click to choose',
+        dropHintEncrypt: 'Free tier ≤ 50 MB · output .enc',
+        dropHintDecrypt: 'Choose a .enc file · free tier ≤ 50 MB',
+        clearFile: 'Clear file',
+        labelPassword: 'Password',
+        showPassword: 'Show',
+        hidePassword: 'Hide',
+        phPassword: 'Enter a strong password (never uploaded)',
+        phConfirm: 'Re-enter password',
+        hintPasswordEncrypt: 'Prefer 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.',
+        hintPasswordDecrypt: 'Enter the password used for encryption. Wrong password or tampering will fail closed.',
+        labelConfirm: 'Confirm password',
+        progressWorking: 'Working…',
+        btnEncrypt: 'Encrypt',
+        btnDecrypt: 'Decrypt',
+        btnEncrypting: 'Encrypting…',
+        btnDecrypting: 'Decrypting…',
+        footerTier: 'Free · no login · ≤ 50 MB per file · Pro streaming up to 2 GB coming soon',
+        cardKdfTitle: 'PBKDF2 · 100k',
+        cardKdfDesc: '16-byte random salt + SHA-256 stretching resists brute force and rainbow tables.',
+        cardAeadTitle: 'AES-GCM-256',
+        cardAeadDesc: 'Authenticated encryption aborts immediately on wrong password or tampering.',
+        cardZkTitle: 'Zero-knowledge local',
+        cardZkDesc: 'Static site, no backend, no upload — browser Web Crypto only.',
+        footerLine1: 'E2EE Vault Free · all computation stays in your browser',
+        footerLine2: 'Protocol: PBKDF2-SHA256 / AES-256-GCM · container format v1 (.enc)',
+        docTitle: 'E2EE Vault · Local zero-knowledge encryption',
+        dropAria: 'Choose or drop a file',
+        errNeedPassword: 'Please enter a password.',
+        errPasswordMismatch: 'Passwords do not match.',
+        warnWeakPassword: 'Password is short. Prefer 12+ characters. Continuing…',
+        infoEncrypting: 'Encrypting locally — keep this tab open…',
+        infoDecrypting: 'Decrypting locally — keep this tab open…',
+        okEncrypted: 'Encryption complete. Download started: {name}. Store the password safely — it cannot be recovered.',
+        okDecrypted: 'Decryption succeeded. Download started: {name}',
+        errCryptoFail: 'Invalid password or corrupted payload. Decryption aborted.',
+        errFreeLimit: 'Free tier limit is 50 MB per file (current {size}). Compress and retry.',
+        errFreeLimitShort: 'Free tier limit is 50 MB per file. Compress or upgrade to Pro.',
+        errFreeLimitEnc: 'Free tier limit is 50 MB per file.',
+        errFreeLimitPlain: 'Recovered payload exceeds the free 50 MB limit.',
+        errTooShort: 'File is too short to be a valid .enc container.',
+        errMetaLen: 'Invalid meta length — file may be corrupted.',
+        errUnsupportedVer: 'Unsupported .enc version: v{v}',
+        errNoWebCrypto: 'This browser lacks Web Crypto API. Use a current Chrome / Firefox / Safari / Edge on HTTPS or localhost.',
+        warnMaybeNotEnc: 'Selected file may not be a .enc container; decrypt will still be attempted.',
+        progressRead: 'Reading file…',
+        progressReadEnc: 'Reading .enc file…',
+        progressSalt: 'Generating salt & IV…',
+        progressKdf: 'Deriving key with PBKDF2 (100,000)…',
+        progressPack: 'Packing metadata & plaintext…',
+        progressEncrypt: 'Encrypting with AES-GCM-256…',
+        progressParse: 'Parsing header…',
+        progressDecrypt: 'Verifying & decrypting (AES-GCM)…',
+        progressRestore: 'Restoring filename & content…',
+        progressDownload: 'Preparing download…',
+        progressDone: 'Done',
+        unnamedFile: 'Untitled file',
+      },
+    };
+
+    const LANG_KEY = 'e2ee-vault-lang';
+
+    function detectLang() {
+      try {
+        const saved = localStorage.getItem(LANG_KEY);
+        if (saved && I18N[saved]) return saved;
+      } catch (_) { /* ignore */ }
+      const nav = (navigator.language || 'en').toLowerCase();
+      return nav.startsWith('zh') ? 'zh-CN' : 'en';
+    }
+
+    /** @type {string} */
+    let lang = detectLang();
+
+    function t(key, vars) {
+      const table = I18N[lang] || I18N.en;
+      let s = table[key] ?? I18N.en[key] ?? key;
+      if (vars) {
+        for (const [k, v] of Object.entries(vars)) {
+          s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(v));
+        }
+      }
+      return s;
+    }
+
+    function applyI18n() {
+      document.documentElement.lang = lang === 'zh-CN' ? 'zh-CN' : 'en';
+      document.title = t('docTitle');
+
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = t(key);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (key) el.setAttribute('placeholder', t(key));
+      });
+      document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-aria');
+        if (key) el.setAttribute('aria-label', t(key));
+      });
+
+      // language toggle active state
+      document.getElementById('lang-zh').classList.toggle('lang-active', lang === 'zh-CN');
+      document.getElementById('lang-en').classList.toggle('lang-active', lang === 'en');
+
+      // mode-dependent strings
+      refreshModeCopy();
+      // password show/hide label
+      const pw = document.getElementById('password');
+      document.getElementById('toggle-password').textContent =
+        pw.type === 'password' ? t('showPassword') : t('hidePassword');
+    }
+
+    function setLang(next) {
+      if (!I18N[next] || next === lang) {
+        lang = next;
+        applyI18n();
+        return;
+      }
+      lang = next;
+      try { localStorage.setItem(LANG_KEY, lang); } catch (_) { /* ignore */ }
+      applyI18n();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------------------
+    const FREE_MAX_BYTES = 50 * 1024 * 1024;
+    const SALT_LEN = 16;
+    const IV_LEN = 12;
+    const TAG_LEN = 16;
+    const META_LEN_SIZE = 4;
+    const PBKDF2_ITERATIONS = 100_000;
+    const HEADER_FIXED = SALT_LEN + IV_LEN + TAG_LEN + META_LEN_SIZE;
+    const PROTOCOL_META = Object.freeze({ v: 1, sealed: true });
+
+    // ---------------------------------------------------------------------------
+    // DOM
+    // ---------------------------------------------------------------------------
+    const $ = (id) => document.getElementById(id);
+    const tabEncrypt = $('tab-encrypt');
+    const tabDecrypt = $('tab-decrypt');
+    const dropzone = $('dropzone');
+    const fileInput = $('file-input');
+    const dropHint = $('drop-hint');
+    const fileChip = $('file-chip');
+    const fileNameEl = $('file-name');
+    const fileMetaEl = $('file-meta');
+    const fileClear = $('file-clear');
+    const passwordEl = $('password');
+    const passwordConfirmEl = $('password-confirm');
+    const confirmWrap = $('confirm-wrap');
+    const togglePasswordBtn = $('toggle-password');
+    const passwordHint = $('password-hint');
+    const statusEl = $('status');
+    const progressWrap = $('progress-wrap');
+    const progressBar = $('progress-bar');
+    const progressLabel = $('progress-label');
+    const progressPct = $('progress-pct');
+    const actionBtn = $('action-btn');
+
+    /** @type {'encrypt' | 'decrypt'} */
+    let mode = 'encrypt';
+    /** @type {File | null} */
+    let selectedFile = null;
+    let busy = false;
+
+    const te = new TextEncoder();
+    const td = new TextDecoder();
+
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function setUint32BE(view, offset, value) {
+      view.setUint32(offset, value >>> 0, false);
+    }
+
+    function getUint32BE(view, offset) {
+      return view.getUint32(offset, false);
+    }
+
+    function wipe(buf) {
+      try {
+        if (!buf) return;
+        if (buf instanceof ArrayBuffer) {
+          new Uint8Array(buf).fill(0);
+          return;
+        }
+        if (ArrayBuffer.isView(buf)) {
+          new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).fill(0);
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    function wipeAll(list) {
+      for (const b of list) wipe(b);
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2_000);
+    }
+
+    function setProgress(pct, labelKey) {
+      const p = Math.max(0, Math.min(100, pct | 0));
+      progressWrap.classList.remove('hidden');
+      progressBar.style.width = p + '%';
+      progressPct.textContent = p + '%';
+      if (labelKey) progressLabel.textContent = t(labelKey);
+    }
+
+    function hideProgress() {
+      progressWrap.classList.add('hidden');
+      progressBar.style.width = '0%';
+      progressPct.textContent = '0%';
+    }
+
+    function showStatus(type, message) {
+      statusEl.classList.remove(
+        'hidden', 'border-ok/30', 'bg-ok/10', 'text-ok',
+        'border-danger/30', 'bg-danger/10', 'text-danger',
+        'border-warn/30', 'bg-warn/10', 'text-warn',
+        'border-accent/30', 'bg-accent/10', 'text-accent-soft', 'shake'
+      );
+      const map = {
+        ok: ['border-ok/30', 'bg-ok/10', 'text-ok'],
+        error: ['border-danger/30', 'bg-danger/10', 'text-danger'],
+        warn: ['border-warn/30', 'bg-warn/10', 'text-warn'],
+        info: ['border-accent/30', 'bg-accent/10', 'text-accent-soft'],
+      };
+      statusEl.classList.add(...(map[type] || map.info));
+      statusEl.textContent = message;
+      if (type === 'error') statusEl.classList.add('shake');
+    }
+
+    function clearStatus() {
+      statusEl.classList.add('hidden');
+      statusEl.textContent = '';
+    }
+
+    function updateActionEnabled() {
+      const hasFile = !!selectedFile;
+      const pw = passwordEl.value;
+      const okPw = pw.length > 0;
+      const okConfirm = mode === 'decrypt' || (passwordConfirmEl.value.length > 0 && passwordConfirmEl.value === pw);
+      actionBtn.disabled = busy || !hasFile || !okPw || !okConfirm;
+    }
+
+    async function deriveKey(passwordString, salt) {
+      const passwordBytes = te.encode(passwordString);
+      try {
+        const baseKey = await crypto.subtle.importKey(
+          'raw', passwordBytes, { name: 'PBKDF2' }, false, ['deriveKey']
+        );
+        return await crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+          baseKey,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt', 'decrypt']
+        );
+      } finally {
+        wipe(passwordBytes);
+      }
+    }
+
+    function packPlaintext(meta, fileBytes) {
+      const metaBytes = te.encode(JSON.stringify({
+        name: meta.name,
+        type: meta.type || 'application/octet-stream',
+      }));
+      const out = new Uint8Array(4 + metaBytes.length + fileBytes.length);
+      setUint32BE(new DataView(out.buffer), 0, metaBytes.length);
+      out.set(metaBytes, 4);
+      out.set(fileBytes, 4 + metaBytes.length);
+      wipe(metaBytes);
+      return out;
+    }
+
+    function unpackPlaintext(plain) {
+      if (plain.byteLength < 4) throw new Error('Invalid payload structure.');
+      const metaLen = getUint32BE(new DataView(plain.buffer, plain.byteOffset, plain.byteLength), 0);
+      if (metaLen < 2 || metaLen > 1024 * 1024 || 4 + metaLen > plain.byteLength) {
+        throw new Error('Invalid payload metadata length.');
+      }
+      const metaBytes = plain.subarray(4, 4 + metaLen);
+      let meta;
+      try {
+        meta = JSON.parse(td.decode(metaBytes));
+      } catch {
+        throw new Error('Invalid payload metadata JSON.');
+      }
+      if (!meta || typeof meta.name !== 'string') {
+        throw new Error('Invalid payload metadata fields.');
+      }
+      return {
+        meta: {
+          name: meta.name,
+          type: typeof meta.type === 'string' && meta.type ? meta.type : 'application/octet-stream',
+        },
+        fileBytes: plain.subarray(4 + metaLen),
+      };
+    }
+
+    async function encryptFile(file, password) {
+      const sensitive = [];
+      let key = null;
+      try {
+        setProgress(5, 'progressRead');
+        const fileBuf = new Uint8Array(await file.arrayBuffer());
+        sensitive.push(fileBuf);
+
+        if (fileBuf.byteLength > FREE_MAX_BYTES) {
+          throw new Error(t('errFreeLimitShort'));
+        }
+
+        setProgress(15, 'progressSalt');
+        const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
+        const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
+        sensitive.push(salt, iv);
+
+        setProgress(25, 'progressKdf');
+        key = await deriveKey(password, salt);
+
+        setProgress(55, 'progressPack');
+        const plain = packPlaintext(
+          { name: file.name || 'file', type: file.type || 'application/octet-stream' },
+          fileBuf
+        );
+        sensitive.push(plain);
+        wipe(fileBuf);
+
+        setProgress(70, 'progressEncrypt');
+        const encryptedWithTag = new Uint8Array(
+          await crypto.subtle.encrypt({ name: 'AES-GCM', iv, tagLength: 128 }, key, plain)
+        );
+        wipe(plain);
+
+        if (encryptedWithTag.byteLength < TAG_LEN) {
+          throw new Error('Encryption produced invalid output.');
+        }
+
+        const ciphertext = encryptedWithTag.subarray(0, encryptedWithTag.byteLength - TAG_LEN);
+        const tag = encryptedWithTag.subarray(encryptedWithTag.byteLength - TAG_LEN);
+        const outerMetaBytes = te.encode(JSON.stringify(PROTOCOL_META));
+        const out = new Uint8Array(HEADER_FIXED + outerMetaBytes.length + ciphertext.byteLength);
+        let o = 0;
+        out.set(salt, o); o += SALT_LEN;
+        out.set(iv, o); o += IV_LEN;
+        out.set(tag, o); o += TAG_LEN;
+        setUint32BE(new DataView(out.buffer), o, outerMetaBytes.length); o += META_LEN_SIZE;
+        out.set(outerMetaBytes, o); o += outerMetaBytes.length;
+        out.set(ciphertext, o);
+
+        wipe(salt); wipe(iv); wipe(tag); wipe(encryptedWithTag); wipe(outerMetaBytes);
+
+        setProgress(95, 'progressDownload');
+        const base = (file.name || 'file').replace(/[/\\?%*:|"<>]/g, '_');
+        const outName = base.endsWith('.enc') ? base : base + '.enc';
+        downloadBlob(new Blob([out], { type: 'application/octet-stream' }), outName);
+        wipe(out);
+
+        setProgress(100, 'progressDone');
+        return outName;
+      } finally {
+        wipeAll(sensitive);
+        key = null;
+      }
+    }
+
+    async function decryptFile(encFile, password) {
+      const sensitive = [];
+      let key = null;
+      try {
+        setProgress(5, 'progressReadEnc');
+        const raw = new Uint8Array(await encFile.arrayBuffer());
+        sensitive.push(raw);
+
+        if (raw.byteLength > FREE_MAX_BYTES + 256 * 1024) {
+          throw new Error(t('errFreeLimitEnc'));
+        }
+        if (raw.byteLength < HEADER_FIXED + 1) {
+          throw new Error(t('errTooShort'));
+        }
+
+        setProgress(15, 'progressParse');
+        let o = 0;
+        const salt = raw.subarray(o, o + SALT_LEN); o += SALT_LEN;
+        const iv = raw.subarray(o, o + IV_LEN); o += IV_LEN;
+        const tag = raw.subarray(o, o + TAG_LEN); o += TAG_LEN;
+        const metaLen = getUint32BE(new DataView(raw.buffer, raw.byteOffset, raw.byteLength), o); o += META_LEN_SIZE;
+
+        if (metaLen > 64 * 1024 || o + metaLen > raw.byteLength) {
+          throw new Error(t('errMetaLen'));
+        }
+        const outerMetaBytes = raw.subarray(o, o + metaLen); o += metaLen;
+        const ciphertext = raw.subarray(o);
+
+        if (metaLen > 0) {
+          try {
+            const outer = JSON.parse(td.decode(outerMetaBytes));
+            if (outer && outer.v != null && outer.v !== 1) {
+              throw new Error(t('errUnsupportedVer', { v: outer.v }));
+            }
+          } catch (e) {
+            if (e instanceof Error && /v\d|version|版本/.test(e.message)) throw e;
+          }
+        }
+
+        setProgress(35, 'progressKdf');
+        key = await deriveKey(password, salt);
+
+        setProgress(65, 'progressDecrypt');
+        const encryptedDataWithTag = new Uint8Array(ciphertext.length + tag.length);
+        encryptedDataWithTag.set(ciphertext, 0);
+        encryptedDataWithTag.set(tag, ciphertext.length);
+        sensitive.push(encryptedDataWithTag);
+
+        let plainBuf;
+        try {
+          plainBuf = new Uint8Array(
+            await crypto.subtle.decrypt(
+              { name: 'AES-GCM', iv, tagLength: 128 },
+              key,
+              encryptedDataWithTag
+            )
+          );
+        } catch {
+          wipe(encryptedDataWithTag);
+          throw new Error('CRYPTO_FAIL');
+        }
+        sensitive.push(plainBuf);
+        wipe(encryptedDataWithTag);
+
+        setProgress(85, 'progressRestore');
+        const { meta, fileBytes } = unpackPlaintext(plainBuf);
+        wipe(plainBuf);
+
+        if (fileBytes.byteLength > FREE_MAX_BYTES) {
+          wipe(fileBytes);
+          throw new Error(t('errFreeLimitPlain'));
+        }
+
+        const safeName = String(meta.name || 'decrypted.bin').replace(/[/\\?%*:|"<>]/g, '_');
+        const blob = new Blob([fileBytes], { type: meta.type || 'application/octet-stream' });
+        wipe(fileBytes);
+        wipe(raw);
+
+        setProgress(95, 'progressDownload');
+        downloadBlob(blob, safeName);
+        setProgress(100, 'progressDone');
+        return safeName;
+      } finally {
+        wipeAll(sensitive);
+        key = null;
+      }
+    }
+
+    function refreshModeCopy() {
+      const enc = mode === 'encrypt';
+      dropHint.textContent = t(enc ? 'dropHintEncrypt' : 'dropHintDecrypt');
+      passwordHint.textContent = t(enc ? 'hintPasswordEncrypt' : 'hintPasswordDecrypt');
+      if (!busy) {
+        actionBtn.textContent = t(enc ? 'btnEncrypt' : 'btnDecrypt');
+      }
+      dropzone.setAttribute('aria-label', t('dropAria'));
+      fileInput.accept = enc ? '*/*' : '.enc,application/octet-stream';
+    }
+
+    function setMode(next) {
+      if (busy) return;
+      mode = next;
+      const enc = mode === 'encrypt';
+      tabEncrypt.classList.toggle('tab-active', enc);
+      tabEncrypt.classList.toggle('text-slate-400', !enc);
+      tabDecrypt.classList.toggle('tab-active', !enc);
+      tabDecrypt.classList.toggle('text-slate-400', enc);
+      confirmWrap.classList.toggle('hidden', !enc);
+      clearStatus();
+      hideProgress();
+      refreshModeCopy();
+      updateActionEnabled();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      fileChip.classList.add('hidden');
+      fileNameEl.textContent = '';
+      fileMetaEl.textContent = '';
+      updateActionEnabled();
+    }
+
+    function assignFile(file) {
+      clearStatus();
+      hideProgress();
+      if (!file) {
+        clearFile();
+        return;
+      }
+      if (file.size > FREE_MAX_BYTES) {
+        clearFile();
+        showStatus('error', t('errFreeLimit', { size: formatBytes(file.size) }));
+        return;
+      }
+      if (mode === 'decrypt') {
+        const name = (file.name || '').toLowerCase();
+        if (name && !name.endsWith('.enc') && file.size < HEADER_FIXED) {
+          showStatus('warn', t('warnMaybeNotEnc'));
+        }
+      }
+      selectedFile = file;
+      fileNameEl.textContent = file.name || t('unnamedFile');
+      fileMetaEl.textContent = formatBytes(file.size) + (file.type ? ' · ' + file.type : '');
+      fileChip.classList.remove('hidden');
+      updateActionEnabled();
+    }
+
+    // Lang toggles
+    $('lang-zh').addEventListener('click', () => setLang('zh-CN'));
+    $('lang-en').addEventListener('click', () => setLang('en'));
+
+    tabEncrypt.addEventListener('click', () => setMode('encrypt'));
+    tabDecrypt.addEventListener('click', () => setMode('decrypt'));
+
+    dropzone.addEventListener('click', (e) => {
+      if (e.target === fileClear || fileClear.contains(/** @type {Node} */ (e.target))) return;
+      fileInput.click();
+    });
+    dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+    dropzone.tabIndex = 0;
+    dropzone.setAttribute('role', 'button');
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      assignFile(f || null);
+    });
+
+    fileClear.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearFile();
+      clearStatus();
+    });
+
+    ['dragenter', 'dragover'].forEach((ev) => {
+      dropzone.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('drop-active');
+      });
+    });
+    ['dragleave', 'drop'].forEach((ev) => {
+      dropzone.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('drop-active');
+      });
+    });
+    dropzone.addEventListener('drop', (e) => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) assignFile(f);
+    });
+
+    passwordEl.addEventListener('input', updateActionEnabled);
+    passwordConfirmEl.addEventListener('input', updateActionEnabled);
+
+    togglePasswordBtn.addEventListener('click', () => {
+      const show = passwordEl.type === 'password';
+      passwordEl.type = show ? 'text' : 'password';
+      passwordConfirmEl.type = show ? 'text' : 'password';
+      togglePasswordBtn.textContent = show ? t('hidePassword') : t('showPassword');
+    });
+
+    async function run() {
+      if (busy || !selectedFile) return;
+      const password = passwordEl.value;
+      if (!password) {
+        showStatus('error', t('errNeedPassword'));
+        return;
+      }
+      if (mode === 'encrypt') {
+        if (password !== passwordConfirmEl.value) {
+          showStatus('error', t('errPasswordMismatch'));
+          return;
+        }
+        if (password.length < 8) {
+          showStatus('warn', t('warnWeakPassword'));
+        }
+      }
+
+      busy = true;
+      updateActionEnabled();
+      actionBtn.textContent = t(mode === 'encrypt' ? 'btnEncrypting' : 'btnDecrypting');
+      clearStatus();
+      showStatus('info', t(mode === 'encrypt' ? 'infoEncrypting' : 'infoDecrypting'));
+
+      try {
+        if (mode === 'encrypt') {
+          const name = await encryptFile(selectedFile, password);
+          showStatus('ok', t('okEncrypted', { name }));
+        } else {
+          const name = await decryptFile(selectedFile, password);
+          showStatus('ok', t('okDecrypted', { name }));
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        const friendly = msg === 'CRYPTO_FAIL' || /Invalid password|verification failed|CRYPTO_FAIL/i.test(msg)
+          ? t('errCryptoFail')
+          : msg;
+        showStatus('error', friendly);
+        hideProgress();
+      } finally {
+        busy = false;
+        actionBtn.textContent = t(mode === 'encrypt' ? 'btnEncrypt' : 'btnDecrypt');
+        updateActionEnabled();
+      }
+    }
+
+    actionBtn.addEventListener('click', () => { run(); });
+
+    if (!window.crypto || !window.crypto.subtle) {
+      showStatus('error', t('errNoWebCrypto'));
+      actionBtn.disabled = true;
+    }
+
+    applyI18n();
+    setMode('encrypt');
+  })();
+  </script>
+</body>
+</html>
