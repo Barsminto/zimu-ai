@@ -95,6 +95,8 @@ body { color: var(--text); background-image: radial-gradient(780px 360px at 50% 
 .theme-light .disabled\:bg-ink-700:disabled { background: #dfe5f0; }
 .theme-light .border-ok\/35 { border-color: #a7e8ca; }
 .theme-light .bg-ok\/10 { background: var(--ok-bg); }
+.theme-light #verify-open { border-color: var(--line); background: var(--panel-soft); }
+.theme-light #verify-open:hover { border-color: #bfd0d8; }
 .theme-light .text-ok { color: #13865b; }
 .theme-light .bg-danger\/10 { background: #fff1f2; }
 .theme-light .bg-warn\/10 { background: #fffbeb; }
