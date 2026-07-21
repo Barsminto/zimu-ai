@@ -1,0 +1,12 @@
+# Cloudflare Workers + Static Assets
+# Project / Worker name must match CF dashboard: encfile
+name = "encfile"
+main = "src/index.js"
+compatibility_date = "2026-07-21"
+
+# Serve the static SPA (index.html, _headers is Pages-only;
+# security headers are also set in the Worker below for Workers Assets).
+[assets]
+directory = "./"
+binding = "ASSETS"
+not_found_handling = "single-page-application"

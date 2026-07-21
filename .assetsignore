@@ -1,0 +1,15 @@
+.git
+.github
+.gitignore
+.DS_Store
+node_modules
+src
+wrangler.toml
+wrangler.jsonc
+package.json
+package-lock.json
+README.md
+LICENSE
+*.bak*
+.env
+.env.*

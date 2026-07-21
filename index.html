@@ -159,35 +159,61 @@
             </div>
           </div>
 
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label for="password" class="block text-xs font-medium uppercase tracking-wider text-slate-500" data-i18n="labelPassword">Password</label>
-              <button id="toggle-password" type="button" class="text-[11px] text-slate-400 hover:text-accent-soft transition" data-i18n="showPassword">Show</button>
+                    <!-- Secrets: never autocomplete / never browser-save -->
+          <form id="secret-form" autocomplete="off" novalidate onsubmit="return false;">
+            <!-- honeypot decoys for password managers -->
+            <div class="sr-only-file" aria-hidden="true">
+              <input type="text" name="username" tabindex="-1" autocomplete="username" value="" />
+              <input type="password" name="password" tabindex="-1" autocomplete="current-password" value="" />
             </div>
-            <input
-              id="password"
-              type="password"
-              autocomplete="new-password"
-              spellcheck="false"
-              data-i18n-placeholder="phPassword"
-              placeholder="Enter a strong password (never uploaded)"
-              class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 pr-12 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
-            />
-            <p id="password-hint" class="mt-2 text-[11px] text-slate-500" data-i18n="hintPasswordEncrypt">Use 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.</p>
-          </div>
 
-          <div id="confirm-wrap">
-            <label for="password-confirm" class="block text-xs font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelConfirm">Confirm password</label>
-            <input
-              id="password-confirm"
-              type="password"
-              autocomplete="new-password"
-              spellcheck="false"
-              data-i18n-placeholder="phConfirm"
-              placeholder="Re-enter password"
-              class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
-            />
-          </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label for="password" class="block text-xs font-medium uppercase tracking-wider text-slate-500" data-i18n="labelPassword">Password</label>
+                <button id="toggle-password" type="button" class="text-[11px] text-slate-400 hover:text-accent-soft transition" data-i18n="showPassword">Show</button>
+              </div>
+              <input
+                id="password"
+                name="e2ee-vault-k-a"
+                type="password"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                inputmode="text"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-form-type="other"
+                data-i18n-placeholder="phPassword"
+                placeholder="Enter a strong password (never uploaded)"
+                class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 pr-12 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
+              />
+              <p id="password-hint" class="mt-2 text-[11px] text-slate-500" data-i18n="hintPasswordEncrypt">Use 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.</p>
+            </div>
+
+            <div id="confirm-wrap" class="mt-5">
+              <label for="password-confirm" class="block text-xs font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelConfirm">Confirm password</label>
+              <input
+                id="password-confirm"
+                name="e2ee-vault-k-b"
+                type="password"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                inputmode="text"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
+                data-form-type="other"
+                data-i18n-placeholder="phConfirm"
+                placeholder="Re-enter password"
+                class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
+              />
+            </div>
+            <p class="mt-2 text-[11px] text-slate-600 leading-relaxed" data-i18n="secretNote">密码仅存在于本次页面内存，切换模式或完成后会清空；请勿让浏览器记住此密码。</p>
+          </form>
 
           <div id="status" class="hidden rounded-xl border px-3.5 py-3 text-sm leading-relaxed" role="status" aria-live="polite"></div>
 
@@ -210,6 +236,15 @@
           >
             Encrypt
           </button>
+
+          <button
+            id="download-btn"
+            type="button"
+            class="hidden w-full rounded-xl border border-ok/40 bg-ok/10 hover:bg-ok/15 text-ok font-medium text-sm py-3.5 transition"
+          >
+            Download
+          </button>
+          <p id="result-name" class="hidden text-[11px] text-center text-slate-400 truncate"></p>
 
           <p class="text-[11px] text-center text-slate-500 leading-relaxed" data-i18n="footerTier">
             Free · no login · ≤ 50 MB per file · Pro streaming up to 2 GB coming soon
@@ -257,7 +292,7 @@
         tabDecrypt: '解密文件',
         labelFile: '选择文件',
         dropTitle: '拖拽文件到此处，或点击选择',
-        dropHintEncrypt: '免费版单文件上限 50 MB · 加密输出 .enc',
+        dropHintEncrypt: '免费版单文件上限 50 MB · 输出为 原名.enc（去掉原后缀）',
         dropHintDecrypt: '选择 .enc 文件 · 免费版上限 50 MB',
         clearFile: '清除文件',
         labelPassword: '密码',
@@ -268,6 +303,7 @@
         hintPasswordEncrypt: '建议 12 位以上，混合大小写、数字与符号。丢失密码将无法恢复文件。',
         hintPasswordDecrypt: '输入加密时使用的密码。密码错误或文件被篡改将无法解密。',
         labelConfirm: '确认密码',
+        secretNote: '密码仅存在于本次页面内存，切换模式或完成后会清空；请勿让浏览器记住此密码。',
         progressWorking: '处理中…',
         btnEncrypt: '开始加密',
         btnDecrypt: '开始解密',
@@ -290,8 +326,11 @@
         warnWeakPassword: '密码较短，建议使用 12 位以上强密码。仍将继续加密…',
         infoEncrypting: '正在本地加密，请勿关闭页面…',
         infoDecrypting: '正在本地解密，请勿关闭页面…',
-        okEncrypted: '加密完成，已开始下载：{name}。请妥善保管密码，丢失无法恢复。',
-        okDecrypted: '解密成功，已开始下载：{name}',
+        okEncrypted: '加密完成：{name}。请点击下方按钮下载，并妥善保管密码（丢失无法恢复）。',
+        okDecrypted: '解密成功：{name}。请点击下方按钮下载。',
+        btnDownload: '下载文件',
+        btnDownloadNamed: '下载 {name}',
+        resultReady: '已就绪：{name}（{size}）',
         errCryptoFail: '密码错误或数据遭受篡改，已中止解密。',
         errFreeLimit: '免费版限制单文件 ≤ 50 MB（当前 {size}）。请压缩后重试。',
         errFreeLimitShort: '免费版限制单文件 ≤ 50 MB。请压缩后重试或升级付费版。',
@@ -325,7 +364,7 @@
         tabDecrypt: 'Decrypt',
         labelFile: 'File',
         dropTitle: 'Drop a file here, or click to choose',
-        dropHintEncrypt: 'Free tier ≤ 50 MB · output .enc',
+        dropHintEncrypt: 'Free tier ≤ 50 MB · output name.enc (original extension stripped)',
         dropHintDecrypt: 'Choose a .enc file · free tier ≤ 50 MB',
         clearFile: 'Clear file',
         labelPassword: 'Password',
@@ -336,6 +375,7 @@
         hintPasswordEncrypt: 'Prefer 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.',
         hintPasswordDecrypt: 'Enter the password used for encryption. Wrong password or tampering will fail closed.',
         labelConfirm: 'Confirm password',
+        secretNote: 'Password stays in this page memory only, and is cleared when you switch modes or finish. Do not let the browser save it.',
         progressWorking: 'Working…',
         btnEncrypt: 'Encrypt',
         btnDecrypt: 'Decrypt',
@@ -357,8 +397,11 @@
         warnWeakPassword: 'Password is short. Prefer 12+ characters. Continuing…',
         infoEncrypting: 'Encrypting locally — keep this tab open…',
         infoDecrypting: 'Decrypting locally — keep this tab open…',
-        okEncrypted: 'Encryption complete. Download started: {name}. Store the password safely — it cannot be recovered.',
-        okDecrypted: 'Decryption succeeded. Download started: {name}',
+        okEncrypted: 'Encryption complete: {name}. Click download below. Store the password safely — it cannot be recovered.',
+        okDecrypted: 'Decryption succeeded: {name}. Click download below.',
+        btnDownload: 'Download file',
+        btnDownloadNamed: 'Download {name}',
+        resultReady: 'Ready: {name} ({size})',
         errCryptoFail: 'Invalid password or corrupted payload. Decryption aborted.',
         errFreeLimit: 'Free tier limit is 50 MB per file (current {size}). Compress and retry.',
         errFreeLimitShort: 'Free tier limit is 50 MB per file. Compress or upgrade to Pro.',
@@ -436,6 +479,16 @@
       const pw = document.getElementById('password');
       document.getElementById('toggle-password').textContent =
         pw.type === 'password' ? t('showPassword') : t('hidePassword');
+      // pending download labels
+      if (pendingDownload) {
+        downloadBtn.textContent = t('btnDownloadNamed', { name: pendingDownload.filename });
+        resultNameEl.textContent = t('resultReady', {
+          name: pendingDownload.filename,
+          size: formatBytes(pendingDownload.blob.size),
+        });
+      } else {
+        downloadBtn.textContent = t('btnDownload');
+      }
     }
 
     function setLang(next) {
@@ -485,12 +538,16 @@
     const progressLabel = $('progress-label');
     const progressPct = $('progress-pct');
     const actionBtn = $('action-btn');
+    const downloadBtn = $('download-btn');
+    const resultNameEl = $('result-name');
 
     /** @type {'encrypt' | 'decrypt'} */
     let mode = 'encrypt';
     /** @type {File | null} */
     let selectedFile = null;
     let busy = false;
+    /** @type {{ blob: Blob, filename: string, objectUrl: string | null } | null} */
+    let pendingDownload = null;
 
     const te = new TextEncoder();
     const td = new TextDecoder();
@@ -526,8 +583,51 @@
       for (const b of list) wipe(b);
     }
 
-    function downloadBlob(blob, filename) {
+    /**
+     * 1.jpg -> 1.enc ; already .enc stays; no double extension.
+     * @param {string} name
+     */
+    function toEncFileName(name) {
+      let base = String(name || 'file').replace(/[/\\?%*:|"<>]/g, '_').trim() || 'file';
+      if (base.toLowerCase().endsWith('.enc')) return base;
+      const i = base.lastIndexOf('.');
+      if (i > 0) base = base.slice(0, i);
+      return base + '.enc';
+    }
+
+    function clearPendingDownload() {
+      if (pendingDownload && pendingDownload.objectUrl) {
+        try { URL.revokeObjectURL(pendingDownload.objectUrl); } catch (_) { /* ignore */ }
+      }
+      pendingDownload = null;
+      downloadBtn.classList.add('hidden');
+      resultNameEl.classList.add('hidden');
+      resultNameEl.textContent = '';
+      downloadBtn.textContent = t('btnDownload');
+    }
+
+    /**
+     * Keep a ready Blob for user-triggered download (no auto download).
+     * @param {Blob} blob
+     * @param {string} filename
+     */
+    function setPendingDownload(blob, filename) {
+      clearPendingDownload();
+      pendingDownload = { blob, filename, objectUrl: null };
+      downloadBtn.classList.remove('hidden');
+      resultNameEl.classList.remove('hidden');
+      resultNameEl.textContent = t('resultReady', { name: filename, size: formatBytes(blob.size) });
+      downloadBtn.textContent = t('btnDownloadNamed', { name: filename });
+    }
+
+    function triggerPendingDownload() {
+      if (!pendingDownload) return;
+      const { blob, filename } = pendingDownload;
+      if (pendingDownload.objectUrl) {
+        try { URL.revokeObjectURL(pendingDownload.objectUrl); } catch (_) { /* ignore */ }
+      }
       const url = URL.createObjectURL(blob);
+      pendingDownload.objectUrl = url;
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -535,7 +635,6 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2_000);
     }
 
     function setProgress(pct, labelKey) {
@@ -692,10 +791,13 @@
         wipe(salt); wipe(iv); wipe(tag); wipe(encryptedWithTag); wipe(outerMetaBytes);
 
         setProgress(95, 'progressDownload');
-        const base = (file.name || 'file').replace(/[/\\?%*:|"<>]/g, '_');
-        const outName = base.endsWith('.enc') ? base : base + '.enc';
-        downloadBlob(new Blob([out], { type: 'application/octet-stream' }), outName);
+        // Copy bytes into Blob first — never wipe the buffer shared with the Blob.
+        const outCopy = out.slice();
         wipe(out);
+        const outName = toEncFileName(file.name || 'file');
+        const outBlob = new Blob([outCopy], { type: 'application/octet-stream' });
+        // outCopy transferred into blob storage via constructor copy; safe to drop ref
+        setPendingDownload(outBlob, outName);
 
         setProgress(100, 'progressDone');
         return outName;
@@ -770,7 +872,11 @@
         wipe(encryptedDataWithTag);
 
         setProgress(85, 'progressRestore');
-        const { meta, fileBytes } = unpackPlaintext(plainBuf);
+        // CRITICAL: unpack returns a view into plainBuf — copy BEFORE wipe.
+        const unpacked = unpackPlaintext(plainBuf);
+        const meta = unpacked.meta;
+        const fileBytes = new Uint8Array(unpacked.fileBytes.byteLength);
+        fileBytes.set(unpacked.fileBytes);
         wipe(plainBuf);
 
         if (fileBytes.byteLength > FREE_MAX_BYTES) {
@@ -779,12 +885,13 @@
         }
 
         const safeName = String(meta.name || 'decrypted.bin').replace(/[/\\?%*:|"<>]/g, '_');
+        // Blob copies buffer contents at construction time
         const blob = new Blob([fileBytes], { type: meta.type || 'application/octet-stream' });
         wipe(fileBytes);
         wipe(raw);
 
         setProgress(95, 'progressDownload');
-        downloadBlob(blob, safeName);
+        setPendingDownload(blob, safeName);
         setProgress(100, 'progressDone');
         return safeName;
       } finally {
@@ -804,8 +911,44 @@
       fileInput.accept = enc ? '*/*' : '.enc,application/octet-stream';
     }
 
+    function clearSecrets() {
+      // Wipe visible password fields so managers / bfcache cannot reinject easily.
+      const fields = [passwordEl, passwordConfirmEl];
+      for (const el of fields) {
+        el.value = '';
+        el.defaultValue = '';
+        el.type = 'password';
+        // force DOM value attribute empty
+        el.setAttribute('value', '');
+        // readonly bounce helps some managers skip autofill on mode switch
+        el.setAttribute('readonly', 'readonly');
+      }
+      togglePasswordBtn.textContent = t('showPassword');
+      // re-enable on next tick
+      setTimeout(() => {
+        for (const el of fields) el.removeAttribute('readonly');
+      }, 30);
+    }
+
+    function resetWorkspace() {
+      // Full UI reset when switching encrypt/decrypt — no leftover file/password/result.
+      clearFile();
+      clearSecrets();
+      clearStatus();
+      hideProgress();
+      clearPendingDownload();
+      const form = document.getElementById('secret-form');
+      if (form) {
+        try { form.reset(); } catch (_) { /* ignore */ }
+      }
+      // form.reset may restore defaults; force empty again
+      clearSecrets();
+      updateActionEnabled();
+    }
+
     function setMode(next) {
       if (busy) return;
+      const switching = next !== mode;
       mode = next;
       const enc = mode === 'encrypt';
       tabEncrypt.classList.toggle('tab-active', enc);
@@ -813,8 +956,14 @@
       tabDecrypt.classList.toggle('tab-active', !enc);
       tabDecrypt.classList.toggle('text-slate-400', enc);
       confirmWrap.classList.toggle('hidden', !enc);
-      clearStatus();
-      hideProgress();
+      if (switching) {
+        resetWorkspace();
+      } else {
+        clearStatus();
+        hideProgress();
+        refreshModeCopy();
+        updateActionEnabled();
+      }
       refreshModeCopy();
       updateActionEnabled();
     }
@@ -825,12 +974,14 @@
       fileChip.classList.add('hidden');
       fileNameEl.textContent = '';
       fileMetaEl.textContent = '';
+      clearPendingDownload();
       updateActionEnabled();
     }
 
     function assignFile(file) {
       clearStatus();
       hideProgress();
+      clearPendingDownload();
       if (!file) {
         clearFile();
         return;
@@ -907,6 +1058,15 @@
     passwordEl.addEventListener('input', updateActionEnabled);
     passwordConfirmEl.addEventListener('input', updateActionEnabled);
 
+    // Extra guard: reject autofilled values injected without user gesture when empty->full instantly on mode switch is rare; still allow normal paste.
+    for (const el of [passwordEl, passwordConfirmEl]) {
+      el.addEventListener('focus', () => el.removeAttribute('readonly'));
+      // Discourage password-manager save prompts
+      el.addEventListener('blur', () => {
+        /* keep value for UX until mode switch / operation end */
+      });
+    }
+
     togglePasswordBtn.addEventListener('click', () => {
       const show = passwordEl.type === 'password';
       passwordEl.type = show ? 'text' : 'password';
@@ -935,6 +1095,7 @@
       updateActionEnabled();
       actionBtn.textContent = t(mode === 'encrypt' ? 'btnEncrypting' : 'btnDecrypting');
       clearStatus();
+      clearPendingDownload();
       showStatus('info', t(mode === 'encrypt' ? 'infoEncrypting' : 'infoDecrypting'));
 
       try {
@@ -954,12 +1115,15 @@
         hideProgress();
       } finally {
         busy = false;
+        // Always drop secrets from the DOM after an attempt so nothing is browser-saved / left filled.
+        clearSecrets();
         actionBtn.textContent = t(mode === 'encrypt' ? 'btnEncrypt' : 'btnDecrypt');
         updateActionEnabled();
       }
     }
 
     actionBtn.addEventListener('click', () => { run(); });
+    downloadBtn.addEventListener('click', () => { triggerPendingDownload(); });
 
     if (!window.crypto || !window.crypto.subtle) {
       showStatus('error', t('errNoWebCrypto'));
@@ -968,6 +1132,15 @@
 
     applyI18n();
     setMode('encrypt');
+    clearSecrets();
+
+    // Back/forward cache may restore filled inputs — force a clean workspace.
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) {
+        resetWorkspace();
+        refreshModeCopy();
+      }
+    });
   })();
   </script>
 </body>
