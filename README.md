@@ -87,7 +87,7 @@ Web Crypto 需要 **安全上下文**（HTTPS 或 localhost）。
 3. `_headers` 会自动下发 CSP / HSTS 等安全响应头  
 
 ```bash
-npx wrangler pages deploy . --project-name=zimu-ai
+npx wrangler deploy
 ```
 
 ## 表单与隐私
@@ -97,33 +97,38 @@ npx wrangler pages deploy . --project-name=zimu-ai
 - **说明**：这能降低“浏览器记住密码 → 他人打开同一浏览器直接填入”的风险，但**不能**防御本机恶意软件、被植入的扩展，或有人能操作你已解锁的浏览器会话。E2EE 的安全前提是设备与浏览器环境可信。
 
 
-## Cloudflare 部署（Workers + Assets · `encfile`）
+## Cloudflare 部署（Workers 静态资源 · `encfile`）
 
-仓库需包含 `wrangler.toml`，且 **`name = "encfile"`** 与 Cloudflare 上的 Worker 名称一致，否则构建会失败。
+**不要用** `wrangler pages deploy`（本账户无需 Pages 项目）。  
+应部署到已有 Worker **`encfile`**，使用 Workers Assets。
 
-### 配置文件
+### `wrangler.toml`（必需）
 
 ```toml
 name = "encfile"
-main = "src/index.js"
 compatibility_date = "2026-07-21"
 
 [assets]
-directory = "./"
+directory = "."
 ```
 
-- `src/index.js`：仅负责托管静态资源 + 安全响应头  
-- **加解密仍在浏览器完成**，Worker 不接收文件、不做密码学运算  
-- `.assetsignore`：避免把 `.git` / `src` / 配置文件打进静态资源包  
+- `name` 必须与 Dashboard 中 Worker 名 **encfile** 一致  
+- **加解密仍在浏览器完成**，Worker 只托管静态文件  
+- `.assetsignore`：排除 `.git` / `src` / 配置等  
 
-### 控制台（Git 集成）
+### 控制台构建设置
 
-1. Workers & Pages → 选择或创建 Worker 名 **`encfile`**
-2. 连接本 GitHub 仓库，生产分支 `main`
-3. 构建命令一般可留空（Wrangler 读 `wrangler.toml`）
-4. 部署后打开 Worker 域名（`*.workers.dev` 或自定义域）
+1. 打开 Worker `encfile` → Settings → Builds  
+2. **部署命令**改为（不要用 pages deploy）：
 
-### 命令行
+```bash
+npx wrangler deploy
+```
+
+3. 构建命令可留空；生产分支 `main`  
+4. 推送代码后自动构建  
+
+### 命令行本地部署
 
 ```bash
 cd zimu-ai
