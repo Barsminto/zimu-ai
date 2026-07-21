@@ -7,69 +7,8 @@
   <meta name="referrer" content="no-referrer" />
   <meta name="theme-color" content="#070a12" />
   <title>E2EE Vault</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            ink: { 950: '#070a12', 900: '#0b1220', 800: '#121a2b', 700: '#1a2438', 600: '#243049' },
-            accent: { DEFAULT: '#6b8cff', soft: '#a8c0ff', dim: '#4a6fe0' },
-            ok: '#34d399',
-            danger: '#f87171',
-            warn: '#fbbf24',
-          },
-          fontFamily: {
-            sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'PingFang SC', 'Noto Sans SC', 'sans-serif'],
-          },
-          maxWidth: { reading: '42rem' },
-        },
-      },
-    };
-  </script>
-  <style>
-    :root { color-scheme: dark; }
-    html, body { background: #070a12; }
-    body {
-      background-image:
-        radial-gradient(900px 480px at 12% -8%, rgba(107,140,255,0.14), transparent 55%),
-        radial-gradient(700px 400px at 100% 0%, rgba(52,211,153,0.06), transparent 50%);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; }
-    }
-    .panel {
-      background: rgba(12, 18, 32, 0.92);
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-    .drop-active {
-      border-color: rgba(107,140,255,0.75) !important;
-      background: rgba(107,140,255,0.07) !important;
-    }
-    .tab-on {
-      background: rgba(107,140,255,0.14);
-      color: #a8c0ff;
-      box-shadow: inset 0 0 0 1px rgba(107,140,255,0.28);
-    }
-    .lang-on { background: rgba(107,140,255,0.2); color: #f1f5f9; }
-    .progress-bar { transition: width 160ms linear; }
-    .shake { animation: shake .35s linear; }
-    @keyframes shake {
-      0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)}
-    }
-    .sr-file {
-      position:absolute;width:1px;height:1px;padding:0;margin:-1px;
-      overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
-    }
-    .legal-prose h3 { margin: 1.1rem 0 .4rem; font-size: .9rem; font-weight: 600; color: #e2e8f0; }
-    .legal-prose p, .legal-prose li { font-size: .8rem; line-height: 1.65; color: #94a3b8; }
-    .legal-prose ul { margin: .35rem 0 .75rem 1.1rem; list-style: disc; }
-    .legal-prose li { margin: .2rem 0; }
-    .legal-prose p + p { margin-top: .55rem; }
-    dialog::backdrop { background: rgba(0,0,0,.62); }
-    dialog { border: 0; padding: 0; background: transparent; max-width: 100vw; }
-  </style>
+  <link rel="preload" href="styles.css" as="style" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="h-full text-slate-200 font-sans antialiased">
   <div class="min-h-full flex flex-col">
@@ -1165,8 +1104,15 @@
     clearSecrets();
   })();
   </script>
-  <!-- Cloudflare Web Analytics -->
-  <script defer type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "fab10c83845c4f888c1043c1f8bdb2fc"}'></script>
-  <!-- End Cloudflare Web Analytics -->
+  <!-- Load analytics after the first page load so it cannot compete with LCP. -->
+  <script>
+    window.addEventListener('load', () => {
+      const beacon = document.createElement('script');
+      beacon.type = 'module';
+      beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+      beacon.dataset.cfBeacon = JSON.stringify({ token: 'fab10c83845c4f888c1043c1f8bdb2fc' });
+      document.body.appendChild(beacon);
+    }, { once: true });
+  </script>
 </body>
 </html>

@@ -13,3 +13,5 @@ LICENSE
 *.bak*
 .env
 .env.*
+tailwind.input.css
+tailwind.config.cjs

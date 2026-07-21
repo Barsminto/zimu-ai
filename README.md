@@ -3,6 +3,14 @@
 浏览器本地端到端零知识文件加解密工具。  
 **完全免费 · 纯静态 · 无后端业务 · 无上传 · Web Crypto API**
 
+生产环境使用本地构建的 `styles.css`，不在浏览器运行 Tailwind CDN 编译器；首页首屏只加载必要样式，Analytics 在页面加载完成后再加载。
+
+修改 UI 后重新生成样式：
+
+```bash
+npx --yes tailwindcss@3.4.17 -c tailwind.config.cjs -i tailwind.input.css -o styles.css --minify
+```
+
 仓库：https://github.com/Barsminto/zimu-ai
 
 ## 功能
