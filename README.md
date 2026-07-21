@@ -13,6 +13,8 @@ npx --yes tailwindcss@3.4.17 -c tailwind.config.cjs -i tailwind.input.css -o sty
 
 仓库：https://github.com/Barsminto/zimu-ai
 
+Google Search Console 验证 `workers.dev` 地址时，请使用「HTML 标记」方式。验证 meta 标签已放在 `index.html` 的 `<head>` 中；`workers.dev` 子域名不适合使用由域名服务商管理的 TXT 验证方式。
+
 ## 功能
 
 | 能力 | 说明 |
