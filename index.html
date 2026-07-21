@@ -5,8 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Local zero-knowledge file encryption in your browser. AES-256-GCM · PBKDF2. No upload." />
   <meta name="referrer" content="no-referrer" />
-  <meta name="theme-color" content="#070a12" />
+  <meta name="theme-color" content="#f6f8fc" />
   <title>E2EE Vault</title>
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem('e2ee-vault-theme');
+        document.documentElement.classList.add(saved === 'dark' ? 'theme-dark' : 'theme-light');
+      } catch (_) {
+        document.documentElement.classList.add('theme-light');
+      }
+    })();
+  </script>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="preload" href="styles.css" as="style" />
   <link rel="stylesheet" href="styles.css" />
@@ -31,6 +41,10 @@
             <button type="button" id="lang-zh" class="px-2.5 py-1 rounded-full transition" data-lang="zh-CN">中文</button>
             <button type="button" id="lang-en" class="px-2.5 py-1 rounded-full transition" data-lang="en">EN</button>
           </div>
+          <button id="theme-toggle" type="button" class="theme-toggle rounded-full border border-white/10 bg-white/[0.03] p-2 text-slate-400 hover:text-white transition" data-i18n-aria="themeToggle" aria-label="Toggle theme">
+            <svg id="theme-sun" class="hidden h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+            <svg id="theme-moon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.6 8.6 0 1 0 20.5 15.2Z"/></svg>
+          </button>
           <span class="hidden xs:inline-flex sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border border-ok/25 bg-ok/10 text-ok">
             <span class="h-1.5 w-1.5 rounded-full bg-ok"></span>
             <span data-i18n="badgeNoUpload">No upload</span>
@@ -208,6 +222,7 @@
     const HEADER_FIXED = SALT_LEN + IV_LEN + TAG_LEN + META_LEN_SIZE;
     const PROTOCOL_META = Object.freeze({ v: 1, sealed: true });
     const LANG_KEY = 'e2ee-vault-lang';
+    const THEME_KEY = 'e2ee-vault-theme';
 
     const I18N = {
       'zh-CN': {
@@ -256,6 +271,7 @@
         navPrivacy: '隐私声明',
         navTerms: '用户条款',
         close: '关闭',
+        themeToggle: '切换日间/夜间模式',
         unnamedFile: '未命名文件',
         errNeedPassword: '请输入密码。',
         errPasswordMismatch: '两次输入的密码不一致。',
@@ -410,6 +426,7 @@
         navPrivacy: 'Privacy',
         navTerms: 'Terms',
         close: 'Close',
+        themeToggle: 'Toggle light/dark mode',
         unnamedFile: 'Untitled file',
         errNeedPassword: 'Please enter a password.',
         errPasswordMismatch: 'Passwords do not match.',
@@ -561,6 +578,24 @@
     const legalTitle = $('legal-title');
     const legalBody = $('legal-body');
     const legalClose = $('legal-close');
+    const themeToggle = $('theme-toggle');
+    const themeSun = $('theme-sun');
+    const themeMoon = $('theme-moon');
+
+    function applyTheme(theme) {
+      const isDark = theme === 'dark';
+      document.documentElement.classList.toggle('theme-dark', isDark);
+      document.documentElement.classList.toggle('theme-light', !isDark);
+      themeSun.classList.toggle('hidden', !isDark);
+      themeMoon.classList.toggle('hidden', isDark);
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', isDark ? '#06080d' : '#f6f8fc');
+    }
+
+    function setTheme(theme) {
+      const next = theme === 'dark' ? 'dark' : 'light';
+      try { localStorage.setItem(THEME_KEY, next); } catch (_) {}
+      applyTheme(next);
+    }
 
     function detectLang() {
       try {
@@ -1040,6 +1075,9 @@
     // Events
     $('lang-zh').addEventListener('click', () => setLang('zh-CN'));
     $('lang-en').addEventListener('click', () => setLang('en'));
+    themeToggle.addEventListener('click', () => {
+      setTheme(document.documentElement.classList.contains('theme-dark') ? 'light' : 'dark');
+    });
     tabEncrypt.addEventListener('click', () => setMode('encrypt'));
     tabDecrypt.addEventListener('click', () => setMode('decrypt'));
 
@@ -1101,6 +1139,7 @@
     }
 
     applyI18n();
+    applyTheme(document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light');
     setMode('encrypt');
     clearSecrets();
   })();

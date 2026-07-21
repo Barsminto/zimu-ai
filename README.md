@@ -51,6 +51,7 @@ Ciphertext 明文结构：`metaLen (u32be) | metaJSON {"name","type"} | fileByte
 - 中文 / English，右上角切换  
 - `localStorage` 键：`e2ee-vault-lang`  
 - UI、错误提示、使用说明 / 隐私 / 条款均双语  
+- 默认使用日间模式；右上角可切换日间 / 夜间模式，选择保存在 `localStorage`（`e2ee-vault-theme`）
 
 ## 本地预览
 
