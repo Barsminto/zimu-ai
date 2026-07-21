@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Browser-local zero-knowledge file encryption. Passwords and plaintext never leave your device." />
+  <meta name="description" content="Local zero-knowledge file encryption in your browser. AES-256-GCM · PBKDF2. No upload." />
   <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#070a12" />
   <title>E2EE Vault</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -13,29 +14,16 @@
       theme: {
         extend: {
           colors: {
-            ink: {
-              950: '#070a12',
-              900: '#0c1220',
-              800: '#121a2b',
-              700: '#1a2438',
-              600: '#243049',
-            },
-            accent: {
-              DEFAULT: '#5b8cff',
-              soft: '#8fb0ff',
-              dim: '#3d6fe0',
-            },
+            ink: { 950: '#070a12', 900: '#0b1220', 800: '#121a2b', 700: '#1a2438', 600: '#243049' },
+            accent: { DEFAULT: '#6b8cff', soft: '#a8c0ff', dim: '#4a6fe0' },
             ok: '#34d399',
             danger: '#f87171',
             warn: '#fbbf24',
           },
-          boxShadow: {
-            glow: '0 0 0 1px rgba(91,140,255,0.18), 0 18px 50px rgba(0,0,0,0.45)',
-          },
           fontFamily: {
             sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'PingFang SC', 'Noto Sans SC', 'sans-serif'],
-            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
           },
+          maxWidth: { reading: '42rem' },
         },
       },
     };
@@ -45,131 +33,119 @@
     html, body { background: #070a12; }
     body {
       background-image:
-        radial-gradient(1200px 600px at 10% -10%, rgba(91,140,255,0.16), transparent 55%),
-        radial-gradient(900px 500px at 90% 0%, rgba(52,211,153,0.08), transparent 50%),
-        radial-gradient(700px 400px at 50% 100%, rgba(91,140,255,0.06), transparent 55%);
-      background-attachment: fixed;
+        radial-gradient(900px 480px at 12% -8%, rgba(107,140,255,0.14), transparent 55%),
+        radial-gradient(700px 400px at 100% 0%, rgba(52,211,153,0.06), transparent 50%);
     }
-    .glass {
-      background: linear-gradient(180deg, rgba(18,26,43,0.92), rgba(12,18,32,0.92));
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+    .panel {
+      background: rgba(12, 18, 32, 0.92);
       border: 1px solid rgba(255,255,255,0.06);
-      backdrop-filter: blur(10px);
     }
     .drop-active {
-      border-color: rgba(91,140,255,0.8) !important;
-      background: rgba(91,140,255,0.08) !important;
-      box-shadow: inset 0 0 0 1px rgba(91,140,255,0.25);
+      border-color: rgba(107,140,255,0.75) !important;
+      background: rgba(107,140,255,0.07) !important;
     }
-    .progress-bar { transition: width 180ms ease; }
-    .tab-active {
-      background: rgba(91,140,255,0.14);
-      color: #8fb0ff;
-      border-color: rgba(91,140,255,0.35);
+    .tab-on {
+      background: rgba(107,140,255,0.14);
+      color: #a8c0ff;
+      box-shadow: inset 0 0 0 1px rgba(107,140,255,0.28);
     }
-    .lang-active {
-      background: rgba(91,140,255,0.18);
-      color: #e2e8f0;
-    }
-    .shake { animation: shake 0.4s linear; }
+    .lang-on { background: rgba(107,140,255,0.2); color: #f1f5f9; }
+    .progress-bar { transition: width 160ms linear; }
+    .shake { animation: shake .35s linear; }
     @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20% { transform: translateX(-6px); }
-      40% { transform: translateX(6px); }
-      60% { transform: translateX(-4px); }
-      80% { transform: translateX(4px); }
+      0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)}
     }
-    .sr-only-file {
-      position: absolute;
-      width: 1px; height: 1px;
-      padding: 0; margin: -1px;
-      overflow: hidden; clip: rect(0,0,0,0);
-      white-space: nowrap; border: 0;
+    .sr-file {
+      position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+      overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
     }
+    .legal-prose h3 { margin: 1.1rem 0 .4rem; font-size: .9rem; font-weight: 600; color: #e2e8f0; }
+    .legal-prose p, .legal-prose li { font-size: .8rem; line-height: 1.65; color: #94a3b8; }
+    .legal-prose ul { margin: .35rem 0 .75rem 1.1rem; list-style: disc; }
+    .legal-prose li { margin: .2rem 0; }
+    .legal-prose p + p { margin-top: .55rem; }
+    dialog::backdrop { background: rgba(0,0,0,.62); }
+    dialog { border: 0; padding: 0; background: transparent; max-width: 100vw; }
   </style>
 </head>
 <body class="h-full text-slate-200 font-sans antialiased">
   <div class="min-h-full flex flex-col">
-    <header class="border-b border-white/5 bg-ink-950/70 backdrop-blur sticky top-0 z-20">
-      <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="h-9 w-9 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-accent-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <rect x="5" y="10" width="14" height="10" rx="2"/>
-              <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
-              <circle cx="12" cy="15" r="1.2" fill="currentColor"/>
+    <header class="sticky top-0 z-30 border-b border-white/5 bg-ink-950/85 backdrop-blur-md">
+      <div class="mx-auto max-w-3xl px-4 py-3.5 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="h-9 w-9 shrink-0 rounded-xl bg-accent/15 border border-accent/25 grid place-items-center" aria-hidden="true">
+            <svg class="h-4.5 w-4.5 text-accent-soft" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.15" fill="currentColor"/>
             </svg>
           </div>
           <div class="min-w-0">
-            <h1 class="text-base sm:text-lg font-semibold tracking-tight text-white truncate" data-i18n="brand">E2EE Vault</h1>
-            <p class="text-xs text-slate-400 truncate" data-i18n="brandSub">Local zero-knowledge · AES-GCM-256 · Free</p>
+            <h1 class="text-[15px] sm:text-base font-semibold text-white tracking-tight truncate" data-i18n="brand">E2EE Vault</h1>
+            <p class="text-[11px] text-slate-500 truncate" data-i18n="brandSub">Local zero-knowledge · AES-256-GCM</p>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <div class="inline-flex rounded-full border border-white/10 bg-white/5 p-0.5 text-[11px]" role="group" aria-label="Language">
+          <div class="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-0.5 text-[11px]" role="group" aria-label="Language">
             <button type="button" id="lang-zh" class="px-2.5 py-1 rounded-full transition" data-lang="zh-CN">中文</button>
             <button type="button" id="lang-en" class="px-2.5 py-1 rounded-full transition" data-lang="en">EN</button>
           </div>
-          <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border border-ok/30 bg-ok/10 text-ok">
+          <span class="hidden xs:inline-flex sm:inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border border-ok/25 bg-ok/10 text-ok">
             <span class="h-1.5 w-1.5 rounded-full bg-ok"></span>
             <span data-i18n="badgeNoUpload">No upload</span>
           </span>
-          <span class="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-slate-300">≤ 50 MB</span>
         </div>
       </div>
     </header>
 
     <main class="flex-1 w-full max-w-3xl mx-auto px-4 py-8 sm:py-10">
-      <section class="mb-6 sm:mb-8">
-        <h2 class="text-2xl sm:text-3xl font-semibold text-white tracking-tight" data-i18n="heroTitle">End-to-end file encryption</h2>
-        <p class="mt-2 text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl" data-i18n="heroDesc">
-          Encrypt and decrypt entirely in your browser sandbox. Passwords are stretched with PBKDF2 (100,000 iterations) and sealed with AES-GCM-256. Filenames and contents stay on this device.
+      <section class="mb-7">
+        <h2 class="text-[1.65rem] sm:text-3xl font-semibold text-white tracking-tight" data-i18n="heroTitle">Encrypt files in your browser</h2>
+        <p class="mt-2 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-reading" data-i18n="heroDesc">
+          Passwords and file contents never leave this device. Everything runs locally with Web Crypto.
         </p>
       </section>
 
-      <section class="glass rounded-2xl shadow-glow overflow-hidden">
-        <div class="flex border-b border-white/5 p-2 gap-2 bg-ink-900/50">
-          <button id="tab-encrypt" type="button" class="tab-active flex-1 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium transition" data-i18n="tabEncrypt">Encrypt</button>
-          <button id="tab-decrypt" type="button" class="flex-1 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition" data-i18n="tabDecrypt">Decrypt</button>
+      <section class="panel rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,.35)]">
+        <div class="flex gap-1.5 p-2 border-b border-white/5 bg-ink-900/40">
+          <button id="tab-encrypt" type="button" class="tab-on flex-1 rounded-xl px-3 py-2.5 text-sm font-medium transition" data-i18n="tabEncrypt">Encrypt</button>
+          <button id="tab-decrypt" type="button" class="flex-1 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition" data-i18n="tabDecrypt">Decrypt</button>
         </div>
 
         <div class="p-5 sm:p-6 space-y-5">
           <div>
-            <label class="block text-xs font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelFile">File</label>
-            <div id="dropzone" class="relative rounded-2xl border border-dashed border-white/10 bg-ink-950/60 hover:border-white/20 transition cursor-pointer px-4 py-10 text-center">
-              <input id="file-input" class="sr-only-file" type="file" />
-              <div class="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0 4 4m-4-4-4 4M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" />
+            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelFile">File</label>
+            <div id="dropzone" class="relative rounded-2xl border border-dashed border-white/10 bg-ink-950/50 hover:border-white/18 transition cursor-pointer px-4 py-9 text-center" tabindex="0" role="button">
+              <input id="file-input" class="sr-file" type="file" />
+              <div class="mx-auto mb-3 h-11 w-11 rounded-2xl bg-white/[0.04] border border-white/10 grid place-items-center">
+                <svg width="22" height="22" class="text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0 4 4m-4-4-4 4M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5"/>
                 </svg>
               </div>
-              <p class="text-sm text-slate-200 font-medium" data-i18n="dropTitle">Drop a file here, or click to choose</p>
-              <p id="drop-hint" class="mt-1 text-xs text-slate-500" data-i18n="dropHintEncrypt">Free tier ≤ 50 MB · output .enc</p>
+              <p class="text-sm text-slate-100 font-medium" data-i18n="dropTitle">Drop a file here, or click to choose</p>
+              <p id="drop-hint" class="mt-1 text-xs text-slate-500" data-i18n="dropHintEncrypt">Up to 50 MB · output name.enc</p>
               <div id="file-chip" class="hidden mt-4 inline-flex max-w-full items-center gap-2 rounded-xl border border-accent/25 bg-accent/10 px-3 py-2 text-left">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-accent-soft shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M7 4h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
-                </svg>
                 <div class="min-w-0">
                   <p id="file-name" class="text-xs font-medium text-accent-soft truncate"></p>
                   <p id="file-meta" class="text-[11px] text-slate-400"></p>
                 </div>
                 <button id="file-clear" type="button" class="ml-1 rounded-lg p-1 text-slate-400 hover:text-white hover:bg-white/10" data-i18n-aria="clearFile" aria-label="Clear file">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
                 </button>
               </div>
             </div>
           </div>
 
-                    <!-- Secrets: never autocomplete / never browser-save -->
           <form id="secret-form" autocomplete="off" novalidate onsubmit="return false;">
-            <!-- honeypot decoys for password managers -->
-            <div class="sr-only-file" aria-hidden="true">
+            <div class="sr-file" aria-hidden="true">
               <input type="text" name="username" tabindex="-1" autocomplete="username" value="" />
               <input type="password" name="password" tabindex="-1" autocomplete="current-password" value="" />
             </div>
 
             <div>
               <div class="flex items-center justify-between mb-2">
-                <label for="password" class="block text-xs font-medium uppercase tracking-wider text-slate-500" data-i18n="labelPassword">Password</label>
+                <label for="password" class="block text-[11px] font-medium uppercase tracking-wider text-slate-500" data-i18n="labelPassword">Password</label>
                 <button id="toggle-password" type="button" class="text-[11px] text-slate-400 hover:text-accent-soft transition" data-i18n="showPassword">Show</button>
               </div>
               <input
@@ -186,14 +162,14 @@
                 data-bwignore="true"
                 data-form-type="other"
                 data-i18n-placeholder="phPassword"
-                placeholder="Enter a strong password (never uploaded)"
-                class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 pr-12 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
+                placeholder="Enter a strong password"
+                class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/45 focus:ring-2 focus:ring-accent/15 transition"
               />
-              <p id="password-hint" class="mt-2 text-[11px] text-slate-500" data-i18n="hintPasswordEncrypt">Use 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.</p>
+              <p id="password-hint" class="mt-2 text-[11px] text-slate-500" data-i18n="hintPasswordEncrypt"></p>
             </div>
 
             <div id="confirm-wrap" class="mt-5">
-              <label for="password-confirm" class="block text-xs font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelConfirm">Confirm password</label>
+              <label for="password-confirm" class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-2" data-i18n="labelConfirm">Confirm password</label>
               <input
                 id="password-confirm"
                 name="e2ee-vault-k-b"
@@ -209,10 +185,10 @@
                 data-form-type="other"
                 data-i18n-placeholder="phConfirm"
                 placeholder="Re-enter password"
-                class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 transition"
+                class="w-full rounded-xl border border-white/10 bg-ink-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-accent/45 focus:ring-2 focus:ring-accent/15 transition"
               />
             </div>
-            <p class="mt-2 text-[11px] text-slate-600 leading-relaxed" data-i18n="secretNote">密码仅存在于本次页面内存，切换模式或完成后会清空；请勿让浏览器记住此密码。</p>
+            <p class="mt-2 text-[11px] text-slate-600 leading-relaxed" data-i18n="secretNote"></p>
           </form>
 
           <div id="status" class="hidden rounded-xl border px-3.5 py-3 text-sm leading-relaxed" role="status" aria-live="polite"></div>
@@ -227,284 +203,61 @@
             </div>
           </div>
 
-          <button
-            id="action-btn"
-            type="button"
-            disabled
-            class="w-full rounded-xl bg-accent hover:bg-accent-dim disabled:bg-ink-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-medium text-sm py-3.5 transition shadow-lg shadow-accent/10"
-            data-i18n="btnEncrypt"
-          >
-            Encrypt
-          </button>
+          <button id="action-btn" type="button" disabled
+            class="w-full rounded-xl bg-accent hover:bg-accent-dim disabled:bg-ink-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-medium text-sm py-3.5 transition"
+            data-i18n="btnEncrypt">Encrypt</button>
 
-          <button
-            id="download-btn"
-            type="button"
-            class="hidden w-full rounded-xl border border-ok/40 bg-ok/10 hover:bg-ok/15 text-ok font-medium text-sm py-3.5 transition"
-          >
-            Download
-          </button>
+          <button id="download-btn" type="button"
+            class="hidden w-full rounded-xl border border-ok/35 bg-ok/10 hover:bg-ok/15 text-ok font-medium text-sm py-3.5 transition">Download</button>
           <p id="result-name" class="hidden text-[11px] text-center text-slate-400 truncate"></p>
 
-          <p class="text-[11px] text-center text-slate-500 leading-relaxed" data-i18n="footerTier">
-            Free · no login · ≤ 50 MB per file · Pro streaming up to 2 GB coming soon
-          </p>
+          <p class="text-[11px] text-center text-slate-500 leading-relaxed" data-i18n="footerTier"></p>
         </div>
       </section>
 
-      <section class="mt-8 grid sm:grid-cols-3 gap-3">
-        <div class="rounded-2xl border border-white/5 bg-ink-900/40 p-4">
+      <section class="mt-7 grid sm:grid-cols-3 gap-3">
+        <div class="rounded-2xl border border-white/5 bg-ink-900/35 p-4">
           <p class="text-xs font-semibold text-slate-200" data-i18n="cardKdfTitle">PBKDF2 · 100k</p>
-          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardKdfDesc">16-byte random salt + SHA-256 stretching resists brute force and rainbow tables.</p>
+          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardKdfDesc"></p>
         </div>
-        <div class="rounded-2xl border border-white/5 bg-ink-900/40 p-4">
+        <div class="rounded-2xl border border-white/5 bg-ink-900/35 p-4">
           <p class="text-xs font-semibold text-slate-200" data-i18n="cardAeadTitle">AES-GCM-256</p>
-          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardAeadDesc">Authenticated encryption aborts immediately on wrong password or tampering.</p>
+          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardAeadDesc"></p>
         </div>
-        <div class="rounded-2xl border border-white/5 bg-ink-900/40 p-4">
-          <p class="text-xs font-semibold text-slate-200" data-i18n="cardZkTitle">Zero-knowledge local</p>
-          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardZkDesc">Static site, no backend, no upload — browser Web Crypto only.</p>
+        <div class="rounded-2xl border border-white/5 bg-ink-900/35 p-4">
+          <p class="text-xs font-semibold text-slate-200" data-i18n="cardZkTitle">Zero-knowledge</p>
+          <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" data-i18n="cardZkDesc"></p>
         </div>
       </section>
     </main>
 
-    <footer class="border-t border-white/5 py-6 text-center text-[11px] text-slate-600">
-      <p data-i18n="footerLine1">E2EE Vault Free · all computation stays in your browser</p>
-      <p class="mt-1" data-i18n="footerLine2">Protocol: PBKDF2-SHA256 / AES-256-GCM · container format v1 (.enc)</p>
+    <footer class="border-t border-white/5 py-6">
+      <div class="max-w-3xl mx-auto px-4 text-center space-y-3">
+        <nav class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[12px]">
+          <button type="button" class="text-slate-400 hover:text-accent-soft transition" data-legal="guide" data-i18n="navGuide">Guide</button>
+          <button type="button" class="text-slate-400 hover:text-accent-soft transition" data-legal="privacy" data-i18n="navPrivacy">Privacy</button>
+          <button type="button" class="text-slate-400 hover:text-accent-soft transition" data-legal="terms" data-i18n="navTerms">Terms</button>
+        </nav>
+        <p class="text-[11px] text-slate-600" data-i18n="footerLine1"></p>
+        <p class="text-[11px] text-slate-700" data-i18n="footerLine2"></p>
+      </div>
     </footer>
   </div>
+
+  <dialog id="legal-dialog" class="w-[min(100vw-1.5rem,40rem)] m-auto rounded-2xl outline-none">
+    <div class="panel rounded-2xl overflow-hidden max-h-[min(86vh,720px)] flex flex-col shadow-2xl">
+      <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+        <h3 id="legal-title" class="text-sm font-semibold text-white truncate"></h3>
+        <button type="button" id="legal-close" class="rounded-lg px-2.5 py-1 text-xs text-slate-400 hover:text-white hover:bg-white/10" data-i18n="close">Close</button>
+      </div>
+      <div id="legal-body" class="legal-prose overflow-y-auto px-5 py-4 overscroll-contain"></div>
+    </div>
+  </dialog>
 
   <script>
   (() => {
     'use strict';
 
-    // ---------------------------------------------------------------------------
-    // i18n
-    // ---------------------------------------------------------------------------
-    const I18N = {
-      'zh-CN': {
-        brand: 'E2EE Vault',
-        brandSub: '本地零知识 · AES-GCM-256 · 免费版',
-        badgeNoUpload: '零上传',
-        heroTitle: '文件端到端加密',
-        heroDesc: '在浏览器沙盒内完成加解密。密码经 PBKDF2（100,000 次）拉伸，使用 AES-GCM-256 认证加密。文件名与内容均被密封；明文与密钥不会离开本机。',
-        tabEncrypt: '加密文件',
-        tabDecrypt: '解密文件',
-        labelFile: '选择文件',
-        dropTitle: '拖拽文件到此处，或点击选择',
-        dropHintEncrypt: '免费版单文件上限 50 MB · 输出为 原名.enc（去掉原后缀）',
-        dropHintDecrypt: '选择 .enc 文件 · 免费版上限 50 MB',
-        clearFile: '清除文件',
-        labelPassword: '密码',
-        showPassword: '显示',
-        hidePassword: '隐藏',
-        phPassword: '输入自定义强密码（不会上传）',
-        phConfirm: '再次输入密码',
-        hintPasswordEncrypt: '建议 12 位以上，混合大小写、数字与符号。丢失密码将无法恢复文件。',
-        hintPasswordDecrypt: '输入加密时使用的密码。密码错误或文件被篡改将无法解密。',
-        labelConfirm: '确认密码',
-        secretNote: '密码仅存在于本次页面内存，切换模式或完成后会清空；请勿让浏览器记住此密码。',
-        progressWorking: '处理中…',
-        btnEncrypt: '开始加密',
-        btnDecrypt: '开始解密',
-        btnEncrypting: '加密中…',
-        btnDecrypting: '解密中…',
-        footerTier: '免费版无需登录 · 单文件 ≤ 50 MB · 付费版支持最大 2 GB 流式处理（即将推出）',
-        cardKdfTitle: 'PBKDF2 · 100k',
-        cardKdfDesc: '随机 16B 盐值 + SHA-256 迭代拉伸，抗暴破与彩虹表。',
-        cardAeadTitle: 'AES-GCM-256',
-        cardAeadDesc: 'AEAD 认证加密，密文篡改或密码错误将立即熔断。',
-        cardZkTitle: '零知识本地',
-        cardZkDesc: '纯静态站，无后端、无上传；Web Crypto 内核级 API。',
-        footerLine1: 'E2EE Vault 免费版 · 所有运算均在你的浏览器中完成',
-        footerLine2: '协议：PBKDF2-SHA256 / AES-256-GCM · 文件格式 v1 (.enc)',
-        docTitle: 'E2EE Vault · 本地零知识文件加解密',
-        dropAria: '选择或拖拽文件',
-        // runtime messages
-        errNeedPassword: '请输入密码。',
-        errPasswordMismatch: '两次输入的密码不一致。',
-        warnWeakPassword: '密码较短，建议使用 12 位以上强密码。仍将继续加密…',
-        infoEncrypting: '正在本地加密，请勿关闭页面…',
-        infoDecrypting: '正在本地解密，请勿关闭页面…',
-        okEncrypted: '加密完成：{name}。请点击下方按钮下载，并妥善保管密码（丢失无法恢复）。',
-        okDecrypted: '解密成功：{name}。请点击下方按钮下载。',
-        btnDownload: '下载文件',
-        btnDownloadNamed: '下载 {name}',
-        resultReady: '已就绪：{name}（{size}）',
-        errCryptoFail: '密码错误或数据遭受篡改，已中止解密。',
-        errFreeLimit: '免费版限制单文件 ≤ 50 MB（当前 {size}）。请压缩后重试。',
-        errFreeLimitShort: '免费版限制单文件 ≤ 50 MB。请压缩后重试或升级付费版。',
-        errFreeLimitEnc: '免费版限制单文件 ≤ 50 MB。',
-        errFreeLimitPlain: '解密内容超过免费版 50 MB 限制。',
-        errTooShort: '文件过短，不是有效的 .enc 容器。',
-        errMetaLen: '无效的 Meta 长度，文件可能已损坏。',
-        errUnsupportedVer: '不支持的 .enc 版本：v{v}',
-        errNoWebCrypto: '当前浏览器不支持 Web Crypto API。请使用最新版 Chrome / Firefox / Safari / Edge，并在 HTTPS 或 localhost 下打开。',
-        warnMaybeNotEnc: '所选文件可能不是 .enc 容器，仍可尝试解密。',
-        progressRead: '读取文件…',
-        progressReadEnc: '读取 .enc 文件…',
-        progressSalt: '生成盐值与 IV…',
-        progressKdf: 'PBKDF2 密钥衍生（100,000 次）…',
-        progressPack: '打包元数据与明文…',
-        progressEncrypt: 'AES-GCM-256 加密…',
-        progressParse: '解析文件头…',
-        progressDecrypt: 'AES-GCM 完整性校验与解密…',
-        progressRestore: '还原文件名与内容…',
-        progressDownload: '准备下载…',
-        progressDone: '完成',
-        unnamedFile: '未命名文件',
-      },
-      en: {
-        brand: 'E2EE Vault',
-        brandSub: 'Local zero-knowledge · AES-GCM-256 · Free',
-        badgeNoUpload: 'No upload',
-        heroTitle: 'End-to-end file encryption',
-        heroDesc: 'Encrypt and decrypt entirely in your browser sandbox. Passwords are stretched with PBKDF2 (100,000 iterations) and sealed with AES-GCM-256. Filenames and contents stay on this device.',
-        tabEncrypt: 'Encrypt',
-        tabDecrypt: 'Decrypt',
-        labelFile: 'File',
-        dropTitle: 'Drop a file here, or click to choose',
-        dropHintEncrypt: 'Free tier ≤ 50 MB · output name.enc (original extension stripped)',
-        dropHintDecrypt: 'Choose a .enc file · free tier ≤ 50 MB',
-        clearFile: 'Clear file',
-        labelPassword: 'Password',
-        showPassword: 'Show',
-        hidePassword: 'Hide',
-        phPassword: 'Enter a strong password (never uploaded)',
-        phConfirm: 'Re-enter password',
-        hintPasswordEncrypt: 'Prefer 12+ characters with mixed case, digits, and symbols. Lost passwords cannot be recovered.',
-        hintPasswordDecrypt: 'Enter the password used for encryption. Wrong password or tampering will fail closed.',
-        labelConfirm: 'Confirm password',
-        secretNote: 'Password stays in this page memory only, and is cleared when you switch modes or finish. Do not let the browser save it.',
-        progressWorking: 'Working…',
-        btnEncrypt: 'Encrypt',
-        btnDecrypt: 'Decrypt',
-        btnEncrypting: 'Encrypting…',
-        btnDecrypting: 'Decrypting…',
-        footerTier: 'Free · no login · ≤ 50 MB per file · Pro streaming up to 2 GB coming soon',
-        cardKdfTitle: 'PBKDF2 · 100k',
-        cardKdfDesc: '16-byte random salt + SHA-256 stretching resists brute force and rainbow tables.',
-        cardAeadTitle: 'AES-GCM-256',
-        cardAeadDesc: 'Authenticated encryption aborts immediately on wrong password or tampering.',
-        cardZkTitle: 'Zero-knowledge local',
-        cardZkDesc: 'Static site, no backend, no upload — browser Web Crypto only.',
-        footerLine1: 'E2EE Vault Free · all computation stays in your browser',
-        footerLine2: 'Protocol: PBKDF2-SHA256 / AES-256-GCM · container format v1 (.enc)',
-        docTitle: 'E2EE Vault · Local zero-knowledge encryption',
-        dropAria: 'Choose or drop a file',
-        errNeedPassword: 'Please enter a password.',
-        errPasswordMismatch: 'Passwords do not match.',
-        warnWeakPassword: 'Password is short. Prefer 12+ characters. Continuing…',
-        infoEncrypting: 'Encrypting locally — keep this tab open…',
-        infoDecrypting: 'Decrypting locally — keep this tab open…',
-        okEncrypted: 'Encryption complete: {name}. Click download below. Store the password safely — it cannot be recovered.',
-        okDecrypted: 'Decryption succeeded: {name}. Click download below.',
-        btnDownload: 'Download file',
-        btnDownloadNamed: 'Download {name}',
-        resultReady: 'Ready: {name} ({size})',
-        errCryptoFail: 'Invalid password or corrupted payload. Decryption aborted.',
-        errFreeLimit: 'Free tier limit is 50 MB per file (current {size}). Compress and retry.',
-        errFreeLimitShort: 'Free tier limit is 50 MB per file. Compress or upgrade to Pro.',
-        errFreeLimitEnc: 'Free tier limit is 50 MB per file.',
-        errFreeLimitPlain: 'Recovered payload exceeds the free 50 MB limit.',
-        errTooShort: 'File is too short to be a valid .enc container.',
-        errMetaLen: 'Invalid meta length — file may be corrupted.',
-        errUnsupportedVer: 'Unsupported .enc version: v{v}',
-        errNoWebCrypto: 'This browser lacks Web Crypto API. Use a current Chrome / Firefox / Safari / Edge on HTTPS or localhost.',
-        warnMaybeNotEnc: 'Selected file may not be a .enc container; decrypt will still be attempted.',
-        progressRead: 'Reading file…',
-        progressReadEnc: 'Reading .enc file…',
-        progressSalt: 'Generating salt & IV…',
-        progressKdf: 'Deriving key with PBKDF2 (100,000)…',
-        progressPack: 'Packing metadata & plaintext…',
-        progressEncrypt: 'Encrypting with AES-GCM-256…',
-        progressParse: 'Parsing header…',
-        progressDecrypt: 'Verifying & decrypting (AES-GCM)…',
-        progressRestore: 'Restoring filename & content…',
-        progressDownload: 'Preparing download…',
-        progressDone: 'Done',
-        unnamedFile: 'Untitled file',
-      },
-    };
-
-    const LANG_KEY = 'e2ee-vault-lang';
-
-    function detectLang() {
-      try {
-        const saved = localStorage.getItem(LANG_KEY);
-        if (saved && I18N[saved]) return saved;
-      } catch (_) { /* ignore */ }
-      const nav = (navigator.language || 'en').toLowerCase();
-      return nav.startsWith('zh') ? 'zh-CN' : 'en';
-    }
-
-    /** @type {string} */
-    let lang = detectLang();
-
-    function t(key, vars) {
-      const table = I18N[lang] || I18N.en;
-      let s = table[key] ?? I18N.en[key] ?? key;
-      if (vars) {
-        for (const [k, v] of Object.entries(vars)) {
-          s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(v));
-        }
-      }
-      return s;
-    }
-
-    function applyI18n() {
-      document.documentElement.lang = lang === 'zh-CN' ? 'zh-CN' : 'en';
-      document.title = t('docTitle');
-
-      document.querySelectorAll('[data-i18n]').forEach((el) => {
-        const key = el.getAttribute('data-i18n');
-        if (key) el.textContent = t(key);
-      });
-      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-        const key = el.getAttribute('data-i18n-placeholder');
-        if (key) el.setAttribute('placeholder', t(key));
-      });
-      document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
-        const key = el.getAttribute('data-i18n-aria');
-        if (key) el.setAttribute('aria-label', t(key));
-      });
-
-      // language toggle active state
-      document.getElementById('lang-zh').classList.toggle('lang-active', lang === 'zh-CN');
-      document.getElementById('lang-en').classList.toggle('lang-active', lang === 'en');
-
-      // mode-dependent strings
-      refreshModeCopy();
-      // password show/hide label
-      const pw = document.getElementById('password');
-      document.getElementById('toggle-password').textContent =
-        pw.type === 'password' ? t('showPassword') : t('hidePassword');
-      // pending download labels
-      if (pendingDownload) {
-        downloadBtn.textContent = t('btnDownloadNamed', { name: pendingDownload.filename });
-        resultNameEl.textContent = t('resultReady', {
-          name: pendingDownload.filename,
-          size: formatBytes(pendingDownload.blob.size),
-        });
-      } else {
-        downloadBtn.textContent = t('btnDownload');
-      }
-    }
-
-    function setLang(next) {
-      if (!I18N[next] || next === lang) {
-        lang = next;
-        applyI18n();
-        return;
-      }
-      lang = next;
-      try { localStorage.setItem(LANG_KEY, lang); } catch (_) { /* ignore */ }
-      applyI18n();
-    }
-
-    // ---------------------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------------------
     const FREE_MAX_BYTES = 50 * 1024 * 1024;
     const SALT_LEN = 16;
     const IV_LEN = 12;
@@ -513,11 +266,332 @@
     const PBKDF2_ITERATIONS = 100_000;
     const HEADER_FIXED = SALT_LEN + IV_LEN + TAG_LEN + META_LEN_SIZE;
     const PROTOCOL_META = Object.freeze({ v: 1, sealed: true });
+    const LANG_KEY = 'e2ee-vault-lang';
 
-    // ---------------------------------------------------------------------------
-    // DOM
-    // ---------------------------------------------------------------------------
+    const I18N = {
+      'zh-CN': {
+        brand: 'E2EE Vault',
+        brandSub: '本地零知识 · AES-256-GCM',
+        badgeNoUpload: '零上传',
+        heroTitle: '在浏览器里加密文件',
+        heroDesc: '密码与文件内容不会离开这台设备。全部使用浏览器 Web Crypto 在本地完成。',
+        tabEncrypt: '加密',
+        tabDecrypt: '解密',
+        labelFile: '文件',
+        dropTitle: '拖拽到此处，或点击选择',
+        dropHintEncrypt: '单文件 ≤ 50 MB · 输出为 原名.enc（去掉原后缀）',
+        dropHintDecrypt: '选择 .enc 文件 · 单文件 ≤ 50 MB',
+        clearFile: '清除文件',
+        labelPassword: '密码',
+        showPassword: '显示',
+        hidePassword: '隐藏',
+        phPassword: '输入强密码（不会上传）',
+        phConfirm: '再次输入密码',
+        hintPasswordEncrypt: '建议 12 位以上。密码丢失将无法恢复文件。',
+        hintPasswordDecrypt: '输入加密时使用的密码。错误或文件被篡改将无法解密。',
+        labelConfirm: '确认密码',
+        secretNote: '密码只留在本页内存；切换模式或操作结束后会清空。请勿让浏览器记住。',
+        progressWorking: '处理中…',
+        btnEncrypt: '开始加密',
+        btnDecrypt: '开始解密',
+        btnEncrypting: '加密中…',
+        btnDecrypting: '解密中…',
+        btnDownload: '下载文件',
+        btnDownloadNamed: '下载 {name}',
+        resultReady: '已就绪：{name}（{size}）',
+        footerTier: '完全免费 · 无需登录 · 单文件 ≤ 50 MB · 处理成功后需手动下载',
+        cardKdfTitle: 'PBKDF2 · 100k',
+        cardKdfDesc: '16 字节随机盐 + SHA-256 迭代拉伸，提升抗暴破能力。',
+        cardAeadTitle: 'AES-GCM-256',
+        cardAeadDesc: '认证加密：密码错误或密文被改会立即失败。',
+        cardZkTitle: '零知识本地',
+        cardZkDesc: '静态站点，无业务后端；文件与密码不上传。',
+        footerLine1: 'E2EE Vault · 运算均在你的浏览器中完成',
+        footerLine2: '协议：PBKDF2-SHA256 / AES-256-GCM · 容器 v1（.enc）',
+        docTitle: 'E2EE Vault · 本地零知识文件加密',
+        dropAria: '选择或拖拽文件',
+        navGuide: '使用说明',
+        navPrivacy: '隐私声明',
+        navTerms: '用户条款',
+        close: '关闭',
+        unnamedFile: '未命名文件',
+        errNeedPassword: '请输入密码。',
+        errPasswordMismatch: '两次输入的密码不一致。',
+        warnWeakPassword: '密码较短，建议 12 位以上。仍将继续…',
+        infoEncrypting: '正在本地加密，请勿关闭页面…',
+        infoDecrypting: '正在本地解密，请勿关闭页面…',
+        okEncrypted: '加密完成：{name}。请点击下方下载，并妥善保管密码。',
+        okDecrypted: '解密成功：{name}。请点击下方下载。',
+        errCryptoFail: '密码错误或数据遭受篡改，已中止。',
+        errSizeLimit: '单文件限制 ≤ 50 MB（当前 {size}）。',
+        errSizeLimitShort: '单文件限制 ≤ 50 MB。',
+        errSizeLimitPlain: '解密内容超过 50 MB 限制。',
+        errTooShort: '文件过短，不是有效的 .enc 容器。',
+        errMetaLen: '无效的 Meta 长度，文件可能已损坏。',
+        errUnsupportedVer: '不支持的 .enc 版本：v{v}',
+        errNoWebCrypto: '当前环境不支持 Web Crypto。请使用现代浏览器，并在 HTTPS 或 localhost 打开。',
+        warnMaybeNotEnc: '所选文件可能不是 .enc，仍可尝试解密。',
+        progressRead: '读取文件…',
+        progressReadEnc: '读取 .enc…',
+        progressSalt: '生成盐值与 IV…',
+        progressKdf: 'PBKDF2 密钥衍生…',
+        progressPack: '打包元数据…',
+        progressEncrypt: 'AES-GCM 加密…',
+        progressParse: '解析文件头…',
+        progressDecrypt: '校验并解密…',
+        progressRestore: '还原文件…',
+        progressDownload: '准备下载…',
+        progressDone: '完成',
+        guideTitle: '使用说明',
+        privacyTitle: '隐私声明',
+        termsTitle: '用户条款',
+        guideHtml: `
+          <p>E2EE Vault 是一款<strong>完全免费</strong>的本地文件加解密工具。文件与密码在浏览器中处理，不会上传到服务器。</p>
+          <h3>加密</h3>
+          <ul>
+            <li>选择「加密」，导入文件并设置密码（需确认）。</li>
+            <li>点击开始加密。成功后<strong>不会自动下载</strong>，请再点「下载」。</li>
+            <li>输出命名：<code>1.jpg</code> → <code>1.enc</code>（去掉原后缀，仅保留 .enc）。</li>
+          </ul>
+          <h3>解密</h3>
+          <ul>
+            <li>选择「解密」，导入 <code>.enc</code> 文件并输入加密时密码。</li>
+            <li>校验通过后，再点击「下载」以恢复原文件名与格式。</li>
+          </ul>
+          <h3>限制与安全提示</h3>
+          <ul>
+            <li>单文件最大 50 MB。</li>
+            <li>切换加密/解密会清空文件、密码与待下载结果。</li>
+            <li>密码丢失无法恢复；请使用强密码并离线妥善保管。</li>
+            <li>需要安全上下文：HTTPS 或 localhost。</li>
+            <li>算法：PBKDF2-SHA256（100,000 次）+ AES-256-GCM。</li>
+          </ul>
+          <h3>常见问题</h3>
+          <ul>
+            <li><strong>提示密码错误：</strong>确认密码与文件是否匹配，或文件是否损坏。</li>
+            <li><strong>下载的文件打不开：</strong>确认解密成功后再下载；不要中断处理过程。</li>
+            <li><strong>浏览器能解密我的文件吗？</strong>不能单靠浏览器；需同时持有 .enc 与密码。请勿让浏览器保存密码。</li>
+          </ul>
+        `,
+        privacyHtml: `
+          <p>更新日期：2026-07-21。本工具当前<strong>完全免费</strong>，无需注册登录。</p>
+          <h3>我们处理什么</h3>
+          <ul>
+            <li><strong>文件内容与密码：</strong>仅在你的浏览器内存中用于本地加解密，设计上<strong>不上传</strong>到我们的服务器。</li>
+            <li><strong>原文件名与 MIME：</strong>密封在 .enc 密文内，不以业务明文入库。</li>
+            <li><strong>本地偏好：</strong>语言选择可能保存在 <code>localStorage</code>（如 e2ee-vault-lang）。</li>
+          </ul>
+          <h3>托管与访问统计</h3>
+          <ul>
+            <li>网站可能由 <strong>Cloudflare</strong> 提供静态托管与网络加速。</li>
+            <li>我们启用了 <strong>Cloudflare Web Analytics</strong>，用于了解访问量等聚合指标。该统计<strong>不包含</strong>你的文件内容或加密密码。</li>
+            <li>Cloudflare 作为基础设施提供商，可能处理标准网络请求日志（如 IP、User-Agent、URL），受其隐私政策约束。</li>
+          </ul>
+          <h3>你可控的事项</h3>
+          <ul>
+            <li>可使用浏览器隐私模式；用完关闭标签页。</li>
+            <li>请勿允许浏览器/密码管理器保存本页密码。</li>
+            <li>本机恶意软件或恶意扩展不在本声明可防护范围内。</li>
+          </ul>
+          <h3>联系与变更</h3>
+          <p>我们可能更新本声明；重大变更将更新页面上的日期。继续使用即表示你知悉最新说明。</p>
+        `,
+        termsHtml: `
+          <p>更新日期：2026-07-21。使用 E2EE Vault 即表示你同意以下条款。本服务当前<strong>免费提供</strong>。</p>
+          <h3>服务性质</h3>
+          <ul>
+            <li>本工具按「现状」提供本地加解密能力，不构成保管、备份或密码找回服务。</li>
+            <li>单文件限制为 50 MB；功能可能调整，恕不另行个别通知。</li>
+          </ul>
+          <h3>你的责任</h3>
+          <ul>
+            <li>你必须合法使用本工具，并对加密内容与用途负责。</li>
+            <li>你应自行保管密码与 .enc 文件。<strong>密码丢失或文件损坏可能导致数据永久不可恢复。</strong></li>
+            <li>你应确保设备、浏览器与扩展环境的安全。</li>
+          </ul>
+          <h3>免责声明</h3>
+          <ul>
+            <li>在适用法律允许的最大范围内，我们不对任何直接、间接、附带或后果性损失负责，包括但不限于数据丢失、业务中断、利润损失。</li>
+            <li>不保证服务不中断、无错误，或满足你的特定用途。</li>
+          </ul>
+          <h3>知识产权</h3>
+          <p>页面文案、品牌标识与代码的权利归属项目方或其许可方。你可按仓库许可证使用代码（如有）。</p>
+          <h3>条款变更</h3>
+          <p>我们可能更新本条款。更新后继续使用即视为接受修订。</p>
+          <h3>适用说明</h3>
+          <p>本条款为一般性使用说明，不构成法律意见。若与强制适用法律冲突，以法律规定为准。</p>
+        `,
+      },
+      en: {
+        brand: 'E2EE Vault',
+        brandSub: 'Local zero-knowledge · AES-256-GCM',
+        badgeNoUpload: 'No upload',
+        heroTitle: 'Encrypt files in your browser',
+        heroDesc: 'Passwords and file contents never leave this device. Everything runs locally with Web Crypto.',
+        tabEncrypt: 'Encrypt',
+        tabDecrypt: 'Decrypt',
+        labelFile: 'File',
+        dropTitle: 'Drop a file here, or click to choose',
+        dropHintEncrypt: 'Up to 50 MB · output name.enc (extension stripped)',
+        dropHintDecrypt: 'Choose a .enc file · up to 50 MB',
+        clearFile: 'Clear file',
+        labelPassword: 'Password',
+        showPassword: 'Show',
+        hidePassword: 'Hide',
+        phPassword: 'Enter a strong password (never uploaded)',
+        phConfirm: 'Re-enter password',
+        hintPasswordEncrypt: 'Prefer 12+ characters. A lost password cannot be recovered.',
+        hintPasswordDecrypt: 'Enter the password used for encryption. Wrong password or tampering fails closed.',
+        labelConfirm: 'Confirm password',
+        secretNote: 'Password stays in page memory only; cleared on mode switch or when finished. Do not let the browser save it.',
+        progressWorking: 'Working…',
+        btnEncrypt: 'Encrypt',
+        btnDecrypt: 'Decrypt',
+        btnEncrypting: 'Encrypting…',
+        btnDecrypting: 'Decrypting…',
+        btnDownload: 'Download file',
+        btnDownloadNamed: 'Download {name}',
+        resultReady: 'Ready: {name} ({size})',
+        footerTier: 'Free forever · no login · ≤ 50 MB per file · download manually when ready',
+        cardKdfTitle: 'PBKDF2 · 100k',
+        cardKdfDesc: '16-byte random salt + SHA-256 stretching against brute force.',
+        cardAeadTitle: 'AES-GCM-256',
+        cardAeadDesc: 'Authenticated encryption fails closed on wrong password or tampering.',
+        cardZkTitle: 'Zero-knowledge',
+        cardZkDesc: 'Static site, no app backend — files and passwords are not uploaded.',
+        footerLine1: 'E2EE Vault · all computation stays in your browser',
+        footerLine2: 'Protocol: PBKDF2-SHA256 / AES-256-GCM · container v1 (.enc)',
+        docTitle: 'E2EE Vault · Local zero-knowledge encryption',
+        dropAria: 'Choose or drop a file',
+        navGuide: 'Guide',
+        navPrivacy: 'Privacy',
+        navTerms: 'Terms',
+        close: 'Close',
+        unnamedFile: 'Untitled file',
+        errNeedPassword: 'Please enter a password.',
+        errPasswordMismatch: 'Passwords do not match.',
+        warnWeakPassword: 'Password is short. Prefer 12+ characters. Continuing…',
+        infoEncrypting: 'Encrypting locally — keep this tab open…',
+        infoDecrypting: 'Decrypting locally — keep this tab open…',
+        okEncrypted: 'Encryption complete: {name}. Click download below and store the password safely.',
+        okDecrypted: 'Decryption succeeded: {name}. Click download below.',
+        errCryptoFail: 'Invalid password or corrupted payload. Aborted.',
+        errSizeLimit: 'File limit is 50 MB (current {size}).',
+        errSizeLimitShort: 'File limit is 50 MB.',
+        errSizeLimitPlain: 'Recovered payload exceeds the 50 MB limit.',
+        errTooShort: 'File is too short to be a valid .enc container.',
+        errMetaLen: 'Invalid meta length — file may be corrupted.',
+        errUnsupportedVer: 'Unsupported .enc version: v{v}',
+        errNoWebCrypto: 'Web Crypto is unavailable. Use a modern browser on HTTPS or localhost.',
+        warnMaybeNotEnc: 'Selected file may not be a .enc container; decrypt will still be attempted.',
+        progressRead: 'Reading file…',
+        progressReadEnc: 'Reading .enc…',
+        progressSalt: 'Generating salt & IV…',
+        progressKdf: 'Deriving key (PBKDF2)…',
+        progressPack: 'Packing metadata…',
+        progressEncrypt: 'Encrypting (AES-GCM)…',
+        progressParse: 'Parsing header…',
+        progressDecrypt: 'Verifying & decrypting…',
+        progressRestore: 'Restoring file…',
+        progressDownload: 'Preparing download…',
+        progressDone: 'Done',
+        guideTitle: 'User guide',
+        privacyTitle: 'Privacy notice',
+        termsTitle: 'Terms of use',
+        guideHtml: `
+          <p>E2EE Vault is a <strong>free</strong> local file encryption tool. Files and passwords are processed in your browser and are not uploaded to our servers.</p>
+          <h3>Encrypt</h3>
+          <ul>
+            <li>Open Encrypt, choose a file, and set a password (with confirmation).</li>
+            <li>Start encryption. The result is <strong>not auto-downloaded</strong> — click Download when ready.</li>
+            <li>Output name: <code>1.jpg</code> → <code>1.enc</code> (original extension stripped).</li>
+          </ul>
+          <h3>Decrypt</h3>
+          <ul>
+            <li>Open Decrypt, choose a <code>.enc</code> file, enter the password.</li>
+            <li>After verification succeeds, click Download to restore the original name and type.</li>
+          </ul>
+          <h3>Limits & safety</h3>
+          <ul>
+            <li>Max 50 MB per file.</li>
+            <li>Switching Encrypt/Decrypt clears file, password, and pending download.</li>
+            <li>Lost passwords cannot be recovered — use a strong password and store it offline.</li>
+            <li>Requires a secure context: HTTPS or localhost.</li>
+            <li>Crypto: PBKDF2-SHA256 (100,000 iterations) + AES-256-GCM.</li>
+          </ul>
+          <h3>FAQ</h3>
+          <ul>
+            <li><strong>Invalid password:</strong> Check the password and that the file is intact.</li>
+            <li><strong>Downloaded file won’t open:</strong> Download only after a successful decrypt; don’t interrupt the process.</li>
+            <li><strong>Can the browser decrypt my files alone?</strong> No — someone needs both the .enc file and the password. Don’t let the browser save the password.</li>
+          </ul>
+        `,
+        privacyHtml: `
+          <p>Last updated: 2026-07-21. This tool is currently <strong>free</strong> and does not require an account.</p>
+          <h3>What we process</h3>
+          <ul>
+            <li><strong>File contents & passwords:</strong> used only in browser memory for local crypto; <strong>not uploaded</strong> to our application servers by design.</li>
+            <li><strong>Original filename & MIME:</strong> sealed inside the .enc ciphertext, not stored as cleartext business data.</li>
+            <li><strong>Local preferences:</strong> language may be stored in <code>localStorage</code> (e.g. e2ee-vault-lang).</li>
+          </ul>
+          <h3>Hosting & analytics</h3>
+          <ul>
+            <li>The site may be hosted/accelerated by <strong>Cloudflare</strong>.</li>
+            <li>We use <strong>Cloudflare Web Analytics</strong> for aggregate traffic metrics. It does <strong>not</strong> include your file bytes or encryption password.</li>
+            <li>As infrastructure, Cloudflare may process standard request logs (IP, User-Agent, URL) under its own policies.</li>
+          </ul>
+          <h3>Your controls</h3>
+          <ul>
+            <li>Use a private window; close the tab when finished.</li>
+            <li>Do not allow password managers to save credentials for this page.</li>
+            <li>Malware or malicious extensions on your device are outside this notice’s protection.</li>
+          </ul>
+          <h3>Changes</h3>
+          <p>We may update this notice and the date above. Continued use means you acknowledge the latest version.</p>
+        `,
+        termsHtml: `
+          <p>Last updated: 2026-07-21. By using E2EE Vault you agree to these terms. The service is currently provided <strong>free of charge</strong>.</p>
+          <h3>Nature of the service</h3>
+          <ul>
+            <li>The tool is provided “as is” for local encryption/decryption. It is not a custody, backup, or password-recovery service.</li>
+            <li>Per-file limit is 50 MB; features may change without individual notice.</li>
+          </ul>
+          <h3>Your responsibilities</h3>
+          <ul>
+            <li>Use the tool lawfully and remain responsible for your content and purpose.</li>
+            <li>Safeguard your password and .enc files. <strong>Lost passwords or corrupted files may mean permanent data loss.</strong></li>
+            <li>Keep your device, browser, and extensions secure.</li>
+          </ul>
+          <h3>Disclaimer</h3>
+          <ul>
+            <li>To the fullest extent permitted by law, we are not liable for direct, indirect, incidental, or consequential damages, including data loss, business interruption, or lost profits.</li>
+            <li>We do not warrant uninterrupted or error-free operation, or fitness for a particular purpose.</li>
+          </ul>
+          <h3>Intellectual property</h3>
+          <p>Site copy, branding, and code belong to the project or its licensors. Use code under the repository license if provided.</p>
+          <h3>Changes</h3>
+          <p>We may update these terms. Continued use after changes constitutes acceptance.</p>
+          <h3>General</h3>
+          <p>These terms are a general usage notice, not legal advice. Mandatory local laws prevail where they conflict.</p>
+        `,
+      },
+    };
+
+    let lang = detectLang();
+    /** @type {'encrypt'|'decrypt'} */
+    let mode = 'encrypt';
+    /** @type {File|null} */
+    let selectedFile = null;
+    let busy = false;
+    /** @type {{blob:Blob,filename:string,objectUrl:string|null}|null} */
+    let pendingDownload = null;
+    /** @type {'guide'|'privacy'|'terms'|null} */
+    let legalOpen = null;
+
+    const te = new TextEncoder();
+    const td = new TextDecoder();
     const $ = (id) => document.getElementById(id);
+
     const tabEncrypt = $('tab-encrypt');
     const tabDecrypt = $('tab-decrypt');
     const dropzone = $('dropzone');
@@ -540,17 +614,69 @@
     const actionBtn = $('action-btn');
     const downloadBtn = $('download-btn');
     const resultNameEl = $('result-name');
+    const legalDialog = /** @type {HTMLDialogElement} */ ($('legal-dialog'));
+    const legalTitle = $('legal-title');
+    const legalBody = $('legal-body');
+    const legalClose = $('legal-close');
 
-    /** @type {'encrypt' | 'decrypt'} */
-    let mode = 'encrypt';
-    /** @type {File | null} */
-    let selectedFile = null;
-    let busy = false;
-    /** @type {{ blob: Blob, filename: string, objectUrl: string | null } | null} */
-    let pendingDownload = null;
+    function detectLang() {
+      try {
+        const saved = localStorage.getItem(LANG_KEY);
+        if (saved && I18N[saved]) return saved;
+      } catch (_) {}
+      const nav = (navigator.language || 'en').toLowerCase();
+      return nav.startsWith('zh') ? 'zh-CN' : 'en';
+    }
 
-    const te = new TextEncoder();
-    const td = new TextDecoder();
+    function t(key, vars) {
+      const table = I18N[lang] || I18N.en;
+      let s = table[key] ?? I18N.en[key] ?? key;
+      if (vars) {
+        for (const [k, v] of Object.entries(vars)) {
+          s = s.replaceAll('{' + k + '}', String(v));
+        }
+      }
+      return s;
+    }
+
+    function applyI18n() {
+      document.documentElement.lang = lang === 'zh-CN' ? 'zh-CN' : 'en';
+      document.title = t('docTitle');
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = t(key);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (key) el.setAttribute('placeholder', t(key));
+      });
+      document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-aria');
+        if (key) el.setAttribute('aria-label', t(key));
+      });
+      $('lang-zh').classList.toggle('lang-on', lang === 'zh-CN');
+      $('lang-en').classList.toggle('lang-on', lang === 'en');
+      refreshModeCopy();
+      togglePasswordBtn.textContent =
+        passwordEl.type === 'password' ? t('showPassword') : t('hidePassword');
+      if (pendingDownload) {
+        downloadBtn.textContent = t('btnDownloadNamed', { name: pendingDownload.filename });
+        resultNameEl.textContent = t('resultReady', {
+          name: pendingDownload.filename,
+          size: formatBytes(pendingDownload.blob.size),
+        });
+      } else {
+        downloadBtn.textContent = t('btnDownload');
+      }
+      if (legalOpen) renderLegal(legalOpen);
+    }
+
+    function setLang(next) {
+      if (!I18N[next]) return;
+      lang = next;
+      try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+      applyI18n();
+    }
 
     function formatBytes(n) {
       if (n < 1024) return n + ' B';
@@ -558,35 +684,18 @@
       return (n / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    function setUint32BE(view, offset, value) {
-      view.setUint32(offset, value >>> 0, false);
-    }
-
-    function getUint32BE(view, offset) {
-      return view.getUint32(offset, false);
-    }
+    function setUint32BE(view, offset, value) { view.setUint32(offset, value >>> 0, false); }
+    function getUint32BE(view, offset) { return view.getUint32(offset, false); }
 
     function wipe(buf) {
       try {
         if (!buf) return;
-        if (buf instanceof ArrayBuffer) {
-          new Uint8Array(buf).fill(0);
-          return;
-        }
-        if (ArrayBuffer.isView(buf)) {
-          new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).fill(0);
-        }
-      } catch (_) { /* ignore */ }
+        if (buf instanceof ArrayBuffer) { new Uint8Array(buf).fill(0); return; }
+        if (ArrayBuffer.isView(buf)) new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).fill(0);
+      } catch (_) {}
     }
+    function wipeAll(list) { for (const b of list) wipe(b); }
 
-    function wipeAll(list) {
-      for (const b of list) wipe(b);
-    }
-
-    /**
-     * 1.jpg -> 1.enc ; already .enc stays; no double extension.
-     * @param {string} name
-     */
     function toEncFileName(name) {
       let base = String(name || 'file').replace(/[/\\?%*:|"<>]/g, '_').trim() || 'file';
       if (base.toLowerCase().endsWith('.enc')) return base;
@@ -596,8 +705,8 @@
     }
 
     function clearPendingDownload() {
-      if (pendingDownload && pendingDownload.objectUrl) {
-        try { URL.revokeObjectURL(pendingDownload.objectUrl); } catch (_) { /* ignore */ }
+      if (pendingDownload?.objectUrl) {
+        try { URL.revokeObjectURL(pendingDownload.objectUrl); } catch (_) {}
       }
       pendingDownload = null;
       downloadBtn.classList.add('hidden');
@@ -606,11 +715,6 @@
       downloadBtn.textContent = t('btnDownload');
     }
 
-    /**
-     * Keep a ready Blob for user-triggered download (no auto download).
-     * @param {Blob} blob
-     * @param {string} filename
-     */
     function setPendingDownload(blob, filename) {
       clearPendingDownload();
       pendingDownload = { blob, filename, objectUrl: null };
@@ -622,15 +726,14 @@
 
     function triggerPendingDownload() {
       if (!pendingDownload) return;
-      const { blob, filename } = pendingDownload;
       if (pendingDownload.objectUrl) {
-        try { URL.revokeObjectURL(pendingDownload.objectUrl); } catch (_) { /* ignore */ }
+        try { URL.revokeObjectURL(pendingDownload.objectUrl); } catch (_) {}
       }
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(pendingDownload.blob);
       pendingDownload.objectUrl = url;
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = pendingDownload.filename;
       a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
@@ -644,7 +747,6 @@
       progressPct.textContent = p + '%';
       if (labelKey) progressLabel.textContent = t(labelKey);
     }
-
     function hideProgress() {
       progressWrap.classList.add('hidden');
       progressBar.style.width = '0%';
@@ -652,12 +754,11 @@
     }
 
     function showStatus(type, message) {
-      statusEl.classList.remove(
-        'hidden', 'border-ok/30', 'bg-ok/10', 'text-ok',
+      statusEl.classList.remove('hidden', 'shake',
+        'border-ok/30', 'bg-ok/10', 'text-ok',
         'border-danger/30', 'bg-danger/10', 'text-danger',
         'border-warn/30', 'bg-warn/10', 'text-warn',
-        'border-accent/30', 'bg-accent/10', 'text-accent-soft', 'shake'
-      );
+        'border-accent/30', 'bg-accent/10', 'text-accent-soft');
       const map = {
         ok: ['border-ok/30', 'bg-ok/10', 'text-ok'],
         error: ['border-danger/30', 'bg-danger/10', 'text-danger'],
@@ -668,36 +769,26 @@
       statusEl.textContent = message;
       if (type === 'error') statusEl.classList.add('shake');
     }
-
-    function clearStatus() {
-      statusEl.classList.add('hidden');
-      statusEl.textContent = '';
-    }
+    function clearStatus() { statusEl.classList.add('hidden'); statusEl.textContent = ''; }
 
     function updateActionEnabled() {
-      const hasFile = !!selectedFile;
       const pw = passwordEl.value;
-      const okPw = pw.length > 0;
       const okConfirm = mode === 'decrypt' || (passwordConfirmEl.value.length > 0 && passwordConfirmEl.value === pw);
-      actionBtn.disabled = busy || !hasFile || !okPw || !okConfirm;
+      actionBtn.disabled = busy || !selectedFile || !pw || !okConfirm;
     }
 
     async function deriveKey(passwordString, salt) {
       const passwordBytes = te.encode(passwordString);
       try {
-        const baseKey = await crypto.subtle.importKey(
-          'raw', passwordBytes, { name: 'PBKDF2' }, false, ['deriveKey']
-        );
-        return await crypto.subtle.deriveKey(
+        const baseKey = await crypto.subtle.importKey('raw', passwordBytes, { name: 'PBKDF2' }, false, ['deriveKey']);
+        return crypto.subtle.deriveKey(
           { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
           baseKey,
           { name: 'AES-GCM', length: 256 },
           false,
           ['encrypt', 'decrypt']
         );
-      } finally {
-        wipe(passwordBytes);
-      }
+      } finally { wipe(passwordBytes); }
     }
 
     function packPlaintext(meta, fileBytes) {
@@ -719,16 +810,10 @@
       if (metaLen < 2 || metaLen > 1024 * 1024 || 4 + metaLen > plain.byteLength) {
         throw new Error('Invalid payload metadata length.');
       }
-      const metaBytes = plain.subarray(4, 4 + metaLen);
       let meta;
-      try {
-        meta = JSON.parse(td.decode(metaBytes));
-      } catch {
-        throw new Error('Invalid payload metadata JSON.');
-      }
-      if (!meta || typeof meta.name !== 'string') {
-        throw new Error('Invalid payload metadata fields.');
-      }
+      try { meta = JSON.parse(td.decode(plain.subarray(4, 4 + metaLen))); }
+      catch { throw new Error('Invalid payload metadata JSON.'); }
+      if (!meta || typeof meta.name !== 'string') throw new Error('Invalid payload metadata fields.');
       return {
         meta: {
           name: meta.name,
@@ -740,15 +825,11 @@
 
     async function encryptFile(file, password) {
       const sensitive = [];
-      let key = null;
       try {
         setProgress(5, 'progressRead');
         const fileBuf = new Uint8Array(await file.arrayBuffer());
         sensitive.push(fileBuf);
-
-        if (fileBuf.byteLength > FREE_MAX_BYTES) {
-          throw new Error(t('errFreeLimitShort'));
-        }
+        if (fileBuf.byteLength > FREE_MAX_BYTES) throw new Error(t('errSizeLimitShort'));
 
         setProgress(15, 'progressSalt');
         const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
@@ -756,7 +837,7 @@
         sensitive.push(salt, iv);
 
         setProgress(25, 'progressKdf');
-        key = await deriveKey(password, salt);
+        const key = await deriveKey(password, salt);
 
         setProgress(55, 'progressPack');
         const plain = packPlaintext(
@@ -771,10 +852,7 @@
           await crypto.subtle.encrypt({ name: 'AES-GCM', iv, tagLength: 128 }, key, plain)
         );
         wipe(plain);
-
-        if (encryptedWithTag.byteLength < TAG_LEN) {
-          throw new Error('Encryption produced invalid output.');
-        }
+        if (encryptedWithTag.byteLength < TAG_LEN) throw new Error('Encryption produced invalid output.');
 
         const ciphertext = encryptedWithTag.subarray(0, encryptedWithTag.byteLength - TAG_LEN);
         const tag = encryptedWithTag.subarray(encryptedWithTag.byteLength - TAG_LEN);
@@ -791,36 +869,23 @@
         wipe(salt); wipe(iv); wipe(tag); wipe(encryptedWithTag); wipe(outerMetaBytes);
 
         setProgress(95, 'progressDownload');
-        // Copy bytes into Blob first — never wipe the buffer shared with the Blob.
         const outCopy = out.slice();
         wipe(out);
         const outName = toEncFileName(file.name || 'file');
-        const outBlob = new Blob([outCopy], { type: 'application/octet-stream' });
-        // outCopy transferred into blob storage via constructor copy; safe to drop ref
-        setPendingDownload(outBlob, outName);
-
+        setPendingDownload(new Blob([outCopy], { type: 'application/octet-stream' }), outName);
         setProgress(100, 'progressDone');
         return outName;
-      } finally {
-        wipeAll(sensitive);
-        key = null;
-      }
+      } finally { wipeAll(sensitive); }
     }
 
     async function decryptFile(encFile, password) {
       const sensitive = [];
-      let key = null;
       try {
         setProgress(5, 'progressReadEnc');
         const raw = new Uint8Array(await encFile.arrayBuffer());
         sensitive.push(raw);
-
-        if (raw.byteLength > FREE_MAX_BYTES + 256 * 1024) {
-          throw new Error(t('errFreeLimitEnc'));
-        }
-        if (raw.byteLength < HEADER_FIXED + 1) {
-          throw new Error(t('errTooShort'));
-        }
+        if (raw.byteLength > FREE_MAX_BYTES + 256 * 1024) throw new Error(t('errSizeLimitShort'));
+        if (raw.byteLength < HEADER_FIXED + 1) throw new Error(t('errTooShort'));
 
         setProgress(15, 'progressParse');
         let o = 0;
@@ -828,26 +893,21 @@
         const iv = raw.subarray(o, o + IV_LEN); o += IV_LEN;
         const tag = raw.subarray(o, o + TAG_LEN); o += TAG_LEN;
         const metaLen = getUint32BE(new DataView(raw.buffer, raw.byteOffset, raw.byteLength), o); o += META_LEN_SIZE;
-
-        if (metaLen > 64 * 1024 || o + metaLen > raw.byteLength) {
-          throw new Error(t('errMetaLen'));
-        }
+        if (metaLen > 64 * 1024 || o + metaLen > raw.byteLength) throw new Error(t('errMetaLen'));
         const outerMetaBytes = raw.subarray(o, o + metaLen); o += metaLen;
         const ciphertext = raw.subarray(o);
 
         if (metaLen > 0) {
           try {
             const outer = JSON.parse(td.decode(outerMetaBytes));
-            if (outer && outer.v != null && outer.v !== 1) {
-              throw new Error(t('errUnsupportedVer', { v: outer.v }));
-            }
+            if (outer && outer.v != null && outer.v !== 1) throw new Error(t('errUnsupportedVer', { v: outer.v }));
           } catch (e) {
             if (e instanceof Error && /v\d|version|版本/.test(e.message)) throw e;
           }
         }
 
         setProgress(35, 'progressKdf');
-        key = await deriveKey(password, salt);
+        const key = await deriveKey(password, salt);
 
         setProgress(65, 'progressDecrypt');
         const encryptedDataWithTag = new Uint8Array(ciphertext.length + tag.length);
@@ -857,13 +917,9 @@
 
         let plainBuf;
         try {
-          plainBuf = new Uint8Array(
-            await crypto.subtle.decrypt(
-              { name: 'AES-GCM', iv, tagLength: 128 },
-              key,
-              encryptedDataWithTag
-            )
-          );
+          plainBuf = new Uint8Array(await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv, tagLength: 128 }, key, encryptedDataWithTag
+          ));
         } catch {
           wipe(encryptedDataWithTag);
           throw new Error('CRYPTO_FAIL');
@@ -872,7 +928,6 @@
         wipe(encryptedDataWithTag);
 
         setProgress(85, 'progressRestore');
-        // CRITICAL: unpack returns a view into plainBuf — copy BEFORE wipe.
         const unpacked = unpackPlaintext(plainBuf);
         const meta = unpacked.meta;
         const fileBytes = new Uint8Array(unpacked.fileBytes.byteLength);
@@ -881,11 +936,10 @@
 
         if (fileBytes.byteLength > FREE_MAX_BYTES) {
           wipe(fileBytes);
-          throw new Error(t('errFreeLimitPlain'));
+          throw new Error(t('errSizeLimitPlain'));
         }
 
         const safeName = String(meta.name || 'decrypted.bin').replace(/[/\\?%*:|"<>]/g, '_');
-        // Blob copies buffer contents at construction time
         const blob = new Blob([fileBytes], { type: meta.type || 'application/octet-stream' });
         wipe(fileBytes);
         wipe(raw);
@@ -894,78 +948,31 @@
         setPendingDownload(blob, safeName);
         setProgress(100, 'progressDone');
         return safeName;
-      } finally {
-        wipeAll(sensitive);
-        key = null;
-      }
+      } finally { wipeAll(sensitive); }
     }
 
     function refreshModeCopy() {
       const enc = mode === 'encrypt';
       dropHint.textContent = t(enc ? 'dropHintEncrypt' : 'dropHintDecrypt');
       passwordHint.textContent = t(enc ? 'hintPasswordEncrypt' : 'hintPasswordDecrypt');
-      if (!busy) {
-        actionBtn.textContent = t(enc ? 'btnEncrypt' : 'btnDecrypt');
-      }
+      if (!busy) actionBtn.textContent = t(enc ? 'btnEncrypt' : 'btnDecrypt');
       dropzone.setAttribute('aria-label', t('dropAria'));
       fileInput.accept = enc ? '*/*' : '.enc,application/octet-stream';
     }
 
     function clearSecrets() {
-      // Wipe visible password fields so managers / bfcache cannot reinject easily.
-      const fields = [passwordEl, passwordConfirmEl];
-      for (const el of fields) {
+      for (const el of [passwordEl, passwordConfirmEl]) {
         el.value = '';
         el.defaultValue = '';
         el.type = 'password';
-        // force DOM value attribute empty
         el.setAttribute('value', '');
-        // readonly bounce helps some managers skip autofill on mode switch
         el.setAttribute('readonly', 'readonly');
       }
       togglePasswordBtn.textContent = t('showPassword');
-      // re-enable on next tick
       setTimeout(() => {
-        for (const el of fields) el.removeAttribute('readonly');
+        passwordEl.removeAttribute('readonly');
+        passwordConfirmEl.removeAttribute('readonly');
       }, 30);
-    }
-
-    function resetWorkspace() {
-      // Full UI reset when switching encrypt/decrypt — no leftover file/password/result.
-      clearFile();
-      clearSecrets();
-      clearStatus();
-      hideProgress();
-      clearPendingDownload();
-      const form = document.getElementById('secret-form');
-      if (form) {
-        try { form.reset(); } catch (_) { /* ignore */ }
-      }
-      // form.reset may restore defaults; force empty again
-      clearSecrets();
-      updateActionEnabled();
-    }
-
-    function setMode(next) {
-      if (busy) return;
-      const switching = next !== mode;
-      mode = next;
-      const enc = mode === 'encrypt';
-      tabEncrypt.classList.toggle('tab-active', enc);
-      tabEncrypt.classList.toggle('text-slate-400', !enc);
-      tabDecrypt.classList.toggle('tab-active', !enc);
-      tabDecrypt.classList.toggle('text-slate-400', enc);
-      confirmWrap.classList.toggle('hidden', !enc);
-      if (switching) {
-        resetWorkspace();
-      } else {
-        clearStatus();
-        hideProgress();
-        refreshModeCopy();
-        updateActionEnabled();
-      }
-      refreshModeCopy();
-      updateActionEnabled();
     }
 
     function clearFile() {
@@ -978,17 +985,41 @@
       updateActionEnabled();
     }
 
+    function resetWorkspace() {
+      clearFile();
+      clearSecrets();
+      clearStatus();
+      hideProgress();
+      clearPendingDownload();
+      try { $('secret-form').reset(); } catch (_) {}
+      clearSecrets();
+      updateActionEnabled();
+    }
+
+    function setMode(next) {
+      if (busy) return;
+      const switching = next !== mode;
+      mode = next;
+      const enc = mode === 'encrypt';
+      tabEncrypt.classList.toggle('tab-on', enc);
+      tabEncrypt.classList.toggle('text-slate-400', !enc);
+      tabDecrypt.classList.toggle('tab-on', !enc);
+      tabDecrypt.classList.toggle('text-slate-400', enc);
+      confirmWrap.classList.toggle('hidden', !enc);
+      if (switching) resetWorkspace();
+      else { clearStatus(); hideProgress(); }
+      refreshModeCopy();
+      updateActionEnabled();
+    }
+
     function assignFile(file) {
       clearStatus();
       hideProgress();
       clearPendingDownload();
-      if (!file) {
-        clearFile();
-        return;
-      }
+      if (!file) { clearFile(); return; }
       if (file.size > FREE_MAX_BYTES) {
         clearFile();
-        showStatus('error', t('errFreeLimit', { size: formatBytes(file.size) }));
+        showStatus('error', t('errSizeLimit', { size: formatBytes(file.size) }));
         return;
       }
       if (mode === 'decrypt') {
@@ -1004,91 +1035,34 @@
       updateActionEnabled();
     }
 
-    // Lang toggles
-    $('lang-zh').addEventListener('click', () => setLang('zh-CN'));
-    $('lang-en').addEventListener('click', () => setLang('en'));
-
-    tabEncrypt.addEventListener('click', () => setMode('encrypt'));
-    tabDecrypt.addEventListener('click', () => setMode('decrypt'));
-
-    dropzone.addEventListener('click', (e) => {
-      if (e.target === fileClear || fileClear.contains(/** @type {Node} */ (e.target))) return;
-      fileInput.click();
-    });
-    dropzone.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        fileInput.click();
-      }
-    });
-    dropzone.tabIndex = 0;
-    dropzone.setAttribute('role', 'button');
-
-    fileInput.addEventListener('change', () => {
-      const f = fileInput.files && fileInput.files[0];
-      assignFile(f || null);
-    });
-
-    fileClear.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      clearFile();
-      clearStatus();
-    });
-
-    ['dragenter', 'dragover'].forEach((ev) => {
-      dropzone.addEventListener(ev, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzone.classList.add('drop-active');
-      });
-    });
-    ['dragleave', 'drop'].forEach((ev) => {
-      dropzone.addEventListener(ev, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzone.classList.remove('drop-active');
-      });
-    });
-    dropzone.addEventListener('drop', (e) => {
-      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) assignFile(f);
-    });
-
-    passwordEl.addEventListener('input', updateActionEnabled);
-    passwordConfirmEl.addEventListener('input', updateActionEnabled);
-
-    // Extra guard: reject autofilled values injected without user gesture when empty->full instantly on mode switch is rare; still allow normal paste.
-    for (const el of [passwordEl, passwordConfirmEl]) {
-      el.addEventListener('focus', () => el.removeAttribute('readonly'));
-      // Discourage password-manager save prompts
-      el.addEventListener('blur', () => {
-        /* keep value for UX until mode switch / operation end */
-      });
+    function renderLegal(kind) {
+      legalOpen = kind;
+      const titleKey = kind === 'guide' ? 'guideTitle' : kind === 'privacy' ? 'privacyTitle' : 'termsTitle';
+      const bodyKey = kind === 'guide' ? 'guideHtml' : kind === 'privacy' ? 'privacyHtml' : 'termsHtml';
+      legalTitle.textContent = t(titleKey);
+      legalBody.innerHTML = t(bodyKey);
     }
 
-    togglePasswordBtn.addEventListener('click', () => {
-      const show = passwordEl.type === 'password';
-      passwordEl.type = show ? 'text' : 'password';
-      passwordConfirmEl.type = show ? 'text' : 'password';
-      togglePasswordBtn.textContent = show ? t('hidePassword') : t('showPassword');
-    });
+    function openLegal(kind) {
+      renderLegal(kind);
+      if (typeof legalDialog.showModal === 'function') legalDialog.showModal();
+      else legalDialog.setAttribute('open', '');
+    }
+
+    function closeLegal() {
+      legalOpen = null;
+      if (typeof legalDialog.close === 'function') legalDialog.close();
+      else legalDialog.removeAttribute('open');
+      legalBody.innerHTML = '';
+    }
 
     async function run() {
       if (busy || !selectedFile) return;
       const password = passwordEl.value;
-      if (!password) {
-        showStatus('error', t('errNeedPassword'));
-        return;
-      }
+      if (!password) { showStatus('error', t('errNeedPassword')); return; }
       if (mode === 'encrypt') {
-        if (password !== passwordConfirmEl.value) {
-          showStatus('error', t('errPasswordMismatch'));
-          return;
-        }
-        if (password.length < 8) {
-          showStatus('warn', t('warnWeakPassword'));
-        }
+        if (password !== passwordConfirmEl.value) { showStatus('error', t('errPasswordMismatch')); return; }
+        if (password.length < 8) showStatus('warn', t('warnWeakPassword'));
       }
 
       busy = true;
@@ -1109,23 +1083,76 @@
       } catch (err) {
         const msg = err && err.message ? err.message : String(err);
         const friendly = msg === 'CRYPTO_FAIL' || /Invalid password|verification failed|CRYPTO_FAIL/i.test(msg)
-          ? t('errCryptoFail')
-          : msg;
+          ? t('errCryptoFail') : msg;
         showStatus('error', friendly);
         hideProgress();
       } finally {
         busy = false;
-        // Always drop secrets from the DOM after an attempt so nothing is browser-saved / left filled.
         clearSecrets();
         actionBtn.textContent = t(mode === 'encrypt' ? 'btnEncrypt' : 'btnDecrypt');
         updateActionEnabled();
       }
     }
 
+    // Events
+    $('lang-zh').addEventListener('click', () => setLang('zh-CN'));
+    $('lang-en').addEventListener('click', () => setLang('en'));
+    tabEncrypt.addEventListener('click', () => setMode('encrypt'));
+    tabDecrypt.addEventListener('click', () => setMode('decrypt'));
+
+    dropzone.addEventListener('click', (e) => {
+      if (e.target === fileClear || fileClear.contains(/** @type {Node} */(e.target))) return;
+      fileInput.click();
+    });
+    dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    fileInput.addEventListener('change', () => assignFile(fileInput.files?.[0] || null));
+    fileClear.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      clearFile(); clearStatus();
+    });
+
+    ['dragenter', 'dragover'].forEach((ev) => {
+      dropzone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('drop-active'); });
+    });
+    ['dragleave', 'drop'].forEach((ev) => {
+      dropzone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('drop-active'); });
+    });
+    dropzone.addEventListener('drop', (e) => {
+      const f = e.dataTransfer?.files?.[0];
+      if (f) assignFile(f);
+    });
+
+    passwordEl.addEventListener('input', updateActionEnabled);
+    passwordConfirmEl.addEventListener('input', updateActionEnabled);
+    for (const el of [passwordEl, passwordConfirmEl]) {
+      el.addEventListener('focus', () => el.removeAttribute('readonly'));
+    }
+    togglePasswordBtn.addEventListener('click', () => {
+      const show = passwordEl.type === 'password';
+      passwordEl.type = show ? 'text' : 'password';
+      passwordConfirmEl.type = show ? 'text' : 'password';
+      togglePasswordBtn.textContent = show ? t('hidePassword') : t('showPassword');
+    });
+
     actionBtn.addEventListener('click', () => { run(); });
     downloadBtn.addEventListener('click', () => { triggerPendingDownload(); });
 
-    if (!window.crypto || !window.crypto.subtle) {
+    document.querySelectorAll('[data-legal]').forEach((btn) => {
+      btn.addEventListener('click', () => openLegal(btn.getAttribute('data-legal')));
+    });
+    legalClose.addEventListener('click', closeLegal);
+    legalDialog.addEventListener('click', (e) => {
+      if (e.target === legalDialog) closeLegal();
+    });
+    legalDialog.addEventListener('close', () => { legalOpen = null; legalBody.innerHTML = ''; });
+
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) { resetWorkspace(); refreshModeCopy(); }
+    });
+
+    if (!window.crypto?.subtle) {
       showStatus('error', t('errNoWebCrypto'));
       actionBtn.disabled = true;
     }
@@ -1133,14 +1160,6 @@
     applyI18n();
     setMode('encrypt');
     clearSecrets();
-
-    // Back/forward cache may restore filled inputs — force a clean workspace.
-    window.addEventListener('pageshow', (e) => {
-      if (e.persisted) {
-        resetWorkspace();
-        refreshModeCopy();
-      }
-    });
   })();
   </script>
   <!-- Cloudflare Web Analytics -->
