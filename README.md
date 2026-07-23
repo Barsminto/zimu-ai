@@ -1,88 +1,58 @@
-# zimu-ai · E2EE Vault
+# zimu-ai · Model Market
 
-浏览器本地端到端零知识文件加解密工具。  
-**完全免费 · 纯静态 · 无后端业务 · 无上传 · Web Crypto API**
+模型中转服务商报价目录，使用 Cloudflare Workers 静态资源和 D1 保存商户账户与报价。
 
-生产环境使用本地构建的 `styles.css`，不在浏览器运行 Tailwind CDN 编译器；首页首屏只加载必要样式，Analytics 在页面加载完成后再加载。
+## 当前版本
 
-修改 UI 后重新生成样式：
+- 公开报价市场：浏览供应商的 GPT-5.6 系列报价，包含输入、缓存写入、输出和缓存读取价格。
+- 商户中心：邮箱注册、登录、维护每个模型的一条报价与公开联系方式。
+- 注册防护：Cloudflare Turnstile、D1 频率限制、PBKDF2 密码哈希、HttpOnly 会话 Cookie 和待审核商户状态。
+- 本地静态预览会继续显示假数据；部署并完成 D1 配置后，市场从 `GET /api/quotes` 读取真实数据。
+- 中文 / English 国际化，日间 / 夜间主题切换，夜间主题使用独立高对比度颜色令牌。
+- 价格单位：人民币 / 1M Tokens。
 
-```bash
-npx --yes tailwindcss@3.4.17 -c tailwind.config.cjs -i tailwind.input.css -o styles.css --minify
-```
+## 重要限制
 
-仓库：https://github.com/Barsminto/zimu-ai
-
-Google Search Console 验证 `workers.dev` 地址时，请使用「HTML 标记」方式。验证 meta 标签已放在 `index.html` 的 `<head>` 中；`workers.dev` 子域名不适合使用由域名服务商管理的 TXT 验证方式。
-
-## 功能
-
-| 能力 | 说明 |
-|------|------|
-| 本地加密任意文件 → `.enc` | ✅ |
-| 本地解密 `.enc` → 原文件名 / MIME / 内容 | ✅ |
-| 文件名 / MIME 一并密封 | ✅ |
-| 加密输出命名 | `1.jpg` → **`1.enc`** |
-| 下载方式 | 处理成功后**手动下载** |
-| 单文件体积 | ≤ **50 MB** |
-| 登录 / 付费 | 不需要（当前完全免费） |
-| 使用说明 / 隐私 / 条款 | 页脚入口，中英双语 |
-
-## 密码学
-
-- **KDF**: PBKDF2-HMAC-SHA-256，**100,000** 次迭代，16 字节随机 Salt  
-- **AEAD**: AES-256-GCM，12 字节随机 IV，128-bit Auth Tag  
-- **引擎**: `window.crypto.subtle`
-
-## `.enc` 二进制布局（v1）
-
-```
-Offset  Len   Field
-0       16    Salt
-16      12    IV
-28      16    Auth Tag
-44      4     Meta Length (uint32 big-endian)
-48      N     Meta JSON（公开协议头，如 {"v":1,"sealed":true}）
-48+N    …     Ciphertext
-```
-
-Ciphertext 明文结构：`metaLen (u32be) | metaJSON {"name","type"} | fileBytes`
-
-## 国际化
-
-- 中文 / English，右上角切换  
-- `localStorage` 键：`e2ee-vault-lang`  
-- UI、错误提示、使用说明 / 隐私 / 条款均双语  
-- 默认使用日间模式；右上角可切换日间 / 夜间模式，选择保存在 `localStorage`（`e2ee-vault-theme`）
+该项目不处理支付或担保交易。商户报价和联系方式由商户维护，上线时应开启待审核注册，并在 Cloudflare 配置 WAF 速率限制规则。
 
 ## 本地预览
 
 ```bash
 cd zimu-ai
-python3 -m http.server 4173 --bind 127.0.0.1
+python3 -m http.server 4186 --bind 127.0.0.1
 ```
 
-打开 http://127.0.0.1:4173/ （勿占用 Hermes 的 8787）
+打开 `http://127.0.0.1:4186/`。端口 4186 用于避免与其他本地服务冲突。
 
-## Cloudflare 部署（Workers 静态资源 · `encfile`）
+## 重新生成 CSS
+
+```bash
+npx --yes tailwindcss@3.4.17 -c tailwind.config.cjs -i tailwind.input.css -o styles.css --minify
+```
+
+## Cloudflare 部署
+
+`wrangler.toml` 使用 Workers 静态资源模式。首次部署前必须创建 D1、填入数据库 UUID、设置 Turnstile 和 Worker Secrets：
 
 ```toml
 name = "encfile"
+main = "src/index.js"
 compatibility_date = "2026-07-21"
 
 [assets]
 directory = "."
 ```
 
-部署命令：`npx wrangler deploy`（**不要**用 `pages deploy`）
+部署命令：
 
-## 安全说明
+```bash
+npx wrangler deploy
+```
 
-- 密码错误或密文篡改 → AES-GCM 熔断  
-- 解密先拷贝明文再 wipe，避免视图被清零  
-- 切换模式 / 操作结束清空密码框  
-- Cloudflare Web Analytics 仅访问统计，不含文件与密码  
+不要使用 `wrangler pages deploy`。现有 Cloudflare Web Analytics beacon 保留在 `index.html`，在页面 `load` 后加载，仅用于页面访问统计；不应将其描述为商户数据或报价数据存储。
 
-## 许可证
+完整的 D1、Turnstile 和审核上线步骤见 [docs/D1_AUTH_DEPLOYMENT.md](docs/D1_AUTH_DEPLOYMENT.md)。
 
-见 `LICENSE`。请遵守当地法律法规使用加密工具。
+## 仓库
+
+https://github.com/Barsminto/zimu-ai

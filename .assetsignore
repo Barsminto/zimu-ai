@@ -4,6 +4,9 @@
 .DS_Store
 node_modules
 src
+migrations
+tests
+docs
 wrangler.toml
 wrangler.jsonc
 package.json
@@ -13,5 +16,6 @@ LICENSE
 *.bak*
 .env
 .env.*
+.dev.vars.example
 tailwind.input.css
 tailwind.config.cjs

@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local `wrangler dev` testing. Never commit .dev.vars.
+TURNSTILE_SITE_KEY="1x00000000000000000000AA"
+TURNSTILE_SECRET="1x0000000000000000000000000000000AA"
+# Leave empty for local testing; production must match the Turnstile widget hostname.
+TURNSTILE_HOSTNAME=""
+IP_HASH_SECRET="replace-with-a-32-byte-random-secret"
+REGISTRATION_REVIEW_REQUIRED="true"
