@@ -17,6 +17,29 @@
 
 ## 本地预览
 
+如需使用真实的 Worker API 和本地 D1 数据库，先执行迁移和测试数据 Seed：
+
+```bash
+npx wrangler d1 migrations apply model-market-db --local
+npx wrangler d1 execute model-market-db --local --file seeds/local-test-data.sql --yes
+npx wrangler dev --local --port 4186
+```
+
+Seed 可以重复执行，不会产生重复商户或报价。它只用于本地开发，**不要为该文件添加 `--remote`**。
+
+本地测试账号：
+
+| 商户 | 邮箱 | 状态 |
+|---|---|---|
+| Aurora API | `aurora@example.test` | 已激活 |
+| Northstar Relay | `northstar@example.test` | 已激活 |
+| Lattice Cloud | `lattice@example.test` | 已激活 |
+| Pending Sandbox | `pending@example.test` | 待审核 |
+
+四个账号的本地测试密码均为 `LocalDemo2026!`。
+
+如果只需查看静态页面，可以继续使用简单 HTTP 服务：
+
 ```bash
 cd zimu-ai
 python3 -m http.server 4186 --bind 127.0.0.1
