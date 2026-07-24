@@ -32,16 +32,16 @@ async function handleApi(request, env, url) {
 async function register(request, env, url) {
   const originError = requireSameOrigin(request, url);
   if (originError) return originError;
-  const rateError = await enforceAuthRateLimit(request, env, "register");
-  if (rateError) return rateError;
+  const rateLimit = await checkAuthRateLimit(request, env, "register");
+  if (!rateLimit.ok) return rateLimit.response;
   if (!env.TURNSTILE_SECRET || !env.IP_HASH_SECRET) return apiError("注册服务尚未完成安全配置。", 503);
   const body = await readJson(request);
-  if (!body.ok) return body.response;
+  if (!body.ok) return authFailure(env, rateLimit, "register", body.response);
   const validation = validateRegistration(body.value);
-  if (!validation.ok) return apiError(validation.error, validation.status || 400);
+  if (!validation.ok) return authFailure(env, rateLimit, "register", apiError(validation.error, validation.status || 400));
   const contact = String(body.value.contact || "").trim();
-  if (contact.length > 80) return apiError("公开联系方式不能超过 80 个字符。", 400);
-  if (!await verifyTurnstile(body.value.turnstileToken, request, env)) return apiError("人机验证失败，请重试。", 403);
+  if (contact.length > 80) return authFailure(env, rateLimit, "register", apiError("公开联系方式不能超过 80 个字符。", 400));
+  if (!await verifyTurnstile(body.value.turnstileToken, request, env)) return authFailure(env, rateLimit, "register", apiError("人机验证失败，请重试。", 403));
 
   const now = Date.now();
   const password = await hashPassword(body.value.password);
@@ -51,24 +51,26 @@ async function register(request, env, url) {
       env.DB.prepare("INSERT INTO merchants (user_id, name, contact, status, created_at, updated_at) SELECT id, ?, ?, 'active', ?, ? FROM users WHERE email = ?").bind(validation.merchantName, contact, now, now, validation.email),
     ]);
   } catch (error) {
-    if (String(error.message).includes("UNIQUE")) return apiError("该邮箱已注册。", 409);
+    if (String(error.message).includes("UNIQUE")) return authFailure(env, rateLimit, "register", apiError("该邮箱已注册。", 409));
     return apiError("注册失败，请稍后重试。", 500);
   }
   const user = await findUserByEmail(env, validation.email);
+  await clearAuthFailures(env, rateLimit, "register");
   return withSession(json({ user: publicUser(user) }, 201), user, env, url.protocol === "https:");
 }
 
 async function login(request, env, url) {
   const originError = requireSameOrigin(request, url);
   if (originError) return originError;
-  const rateError = await enforceAuthRateLimit(request, env, "login");
-  if (rateError) return rateError;
+  const rateLimit = await checkAuthRateLimit(request, env, "login");
+  if (!rateLimit.ok) return rateLimit.response;
   const body = await readJson(request);
-  if (!body.ok) return body.response;
+  if (!body.ok) return authFailure(env, rateLimit, "login", body.response);
   const email = String(body.value.email || "").trim().toLowerCase();
   const password = String(body.value.password || "");
   const user = await findUserByEmail(env, email);
-  if (!user || user.merchant_status === "suspended" || !await verifyPassword(password, { hash: user.password_hash, salt: user.password_salt })) return apiError("邮箱或密码错误。", 401);
+  if (!user || user.merchant_status === "suspended" || !await verifyPassword(password, { hash: user.password_hash, salt: user.password_salt })) return authFailure(env, rateLimit, "login", apiError("邮箱或密码错误。", 401));
+  await clearAuthFailures(env, rateLimit, "login");
   return withSession(json({ user: publicUser(user) }), user, env, url.protocol === "https:");
 }
 
@@ -456,16 +458,24 @@ function withClearedSession(response, secureCookie) {
   return new Response(response.body, { status: response.status, headers });
 }
 
-async function enforceAuthRateLimit(request, env, kind) {
-  if (!env.IP_HASH_SECRET) return apiError("认证服务尚未完成安全配置。", 503);
+async function checkAuthRateLimit(request, env, kind) {
+  if (!env.IP_HASH_SECRET) return { ok: false, response: apiError("认证服务尚未完成安全配置。", 503) };
   const now = Date.now();
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
   const ipHash = await sha256(`${env.IP_HASH_SECRET}:${ip}`);
   await env.DB.prepare("DELETE FROM auth_attempts WHERE created_at < ?").bind(now - AUTH_WINDOW_MS).run();
   const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM auth_attempts WHERE kind = ? AND ip_hash = ? AND created_at >= ?").bind(kind, ipHash, now - AUTH_WINDOW_MS).first();
-  if (Number(row.count) >= AUTH_ATTEMPT_LIMIT) return apiError("尝试次数过多，请一小时后再试。", 429);
-  await env.DB.prepare("INSERT INTO auth_attempts (kind, ip_hash, created_at) VALUES (?, ?, ?)").bind(kind, ipHash, now).run();
-  return null;
+  if (Number(row.count) >= AUTH_ATTEMPT_LIMIT) return { ok: false, response: apiError("尝试次数过多，请一小时后再试。", 429) };
+  return { ok: true, ipHash, now };
+}
+
+async function authFailure(env, rateLimit, kind, response) {
+  await env.DB.prepare("INSERT INTO auth_attempts (kind, ip_hash, created_at) VALUES (?, ?, ?)").bind(kind, rateLimit.ipHash, Date.now()).run();
+  return response;
+}
+
+async function clearAuthFailures(env, rateLimit, kind) {
+  await env.DB.prepare("DELETE FROM auth_attempts WHERE kind = ? AND ip_hash = ?").bind(kind, rateLimit.ipHash).run();
 }
 
 async function verifyTurnstile(token, request, env) {

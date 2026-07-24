@@ -154,6 +154,10 @@ function setAuthMode(mode) {
   document.getElementById("auth-status").textContent = "";
 }
 
+function setFormBusy(form, busy) {
+  form.querySelectorAll("button, input").forEach((control) => { control.disabled = busy; });
+}
+
 async function submitAuth(endpoint, payload) {
   const data = await api(endpoint, { method: "POST", body: JSON.stringify(payload) });
   currentUser = data.user;
@@ -416,21 +420,25 @@ function bindEvents() {
   document.querySelectorAll("[data-auth-mode]").forEach((button) => button.addEventListener("click", () => setAuthMode(button.dataset.authMode)));
   document.getElementById("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
     const status = document.getElementById("auth-status");
     status.textContent = "";
-    try { await submitAuth("/api/auth/login", { email: document.getElementById("login-email").value, password: document.getElementById("login-password").value }); } catch (error) { status.textContent = error.message; }
+    setFormBusy(form, true);
+    try { await submitAuth("/api/auth/login", { email: document.getElementById("login-email").value, password: document.getElementById("login-password").value }); } catch (error) { status.textContent = error.message; } finally { setFormBusy(form, false); }
   });
   document.getElementById("register-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
     const status = document.getElementById("auth-status");
     const turnstileToken = window.turnstile && turnstileWidgetId !== null ? window.turnstile.getResponse(turnstileWidgetId) : "";
     if (!turnstileToken) { status.textContent = t("turnstileRequired"); return; }
+    setFormBusy(form, true);
     try {
       await submitAuth("/api/auth/register", { merchantName: document.getElementById("register-merchant-name").value, contact: document.getElementById("register-contact").value, email: document.getElementById("register-email").value, password: document.getElementById("register-password").value, turnstileToken });
     } catch (error) {
       status.textContent = error.message;
       if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
-    }
+    } finally { setFormBusy(form, false); }
   });
   document.getElementById("logout-button").addEventListener("click", async () => { try { await api("/api/auth/logout", { method: "POST" }); } catch (_) {} currentUser = null; merchantOffers = []; syncRoleUi(); setView("market"); });
   document.getElementById("model-select").addEventListener("change", (event) => { activeModel = event.target.value; activeBrand = selectedModel().brandName; renderOfferEditor(); });

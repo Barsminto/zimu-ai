@@ -77,8 +77,8 @@ async function jsonRequest(baseUrl, path, options = {}) {
   return { response, data: await response.json().catch(() => ({})) };
 }
 
-async function login(baseUrl, email) {
-  const { response, data } = await jsonRequest(baseUrl, "/api/auth/login", { method: "POST", body: JSON.stringify({ email, password: "LocalDemo2026!" }) });
+async function login(baseUrl, email, headers = {}) {
+  const { response, data } = await jsonRequest(baseUrl, "/api/auth/login", { method: "POST", headers, body: JSON.stringify({ email, password: "LocalDemo2026!" }) });
   assert.equal(response.status, 200, JSON.stringify(data));
   return response.headers.get("set-cookie").split(";")[0];
 }
@@ -121,4 +121,15 @@ test("Worker API supports dynamic catalog, two offers, and admin authorization",
   assert.equal(overview.response.status, 200);
   const brand = await jsonRequest(baseUrl, "/api/admin/brands", { method: "POST", headers: { Cookie: adminCookie }, body: JSON.stringify({ slug: "api-brand", name: "API Brand" }) });
   assert.equal(brand.response.status, 201, JSON.stringify(brand.data));
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await login(baseUrl, "merchant-api@example.test", { "CF-Connecting-IP": "203.0.113.10" });
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const failed = await jsonRequest(baseUrl, "/api/auth/login", { method: "POST", headers: { "CF-Connecting-IP": "203.0.113.11" }, body: JSON.stringify({ email: "merchant-api@example.test", password: "WrongPassword2026!" }) });
+    assert.equal(failed.response.status, 401);
+  }
+  const blocked = await jsonRequest(baseUrl, "/api/auth/login", { method: "POST", headers: { "CF-Connecting-IP": "203.0.113.11" }, body: JSON.stringify({ email: "merchant-api@example.test", password: "WrongPassword2026!" }) });
+  assert.equal(blocked.response.status, 429);
 });
