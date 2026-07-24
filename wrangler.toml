@@ -13,7 +13,6 @@ run_worker_first = ["/api/*"]
 [vars]
 TURNSTILE_SITE_KEY = "0x4AAAAAAD8Aw7aogO2sjTxW"
 TURNSTILE_HOSTNAME = "encfile.antiumbo123.workers.dev"
-REGISTRATION_REVIEW_REQUIRED = "true"
 
 [[d1_databases]]
 binding = "DB"

@@ -226,3 +226,16 @@ ON CONFLICT(merchant_id, model_id) DO UPDATE SET
   cache_read_price_milli = excluded.cache_read_price_milli,
   channel_note = excluded.channel_note,
   updated_at = excluded.updated_at;
+
+-- Keep this seed compatible with the post-0002 offer API when it runs after migrations.
+INSERT OR IGNORE INTO offers (
+  merchant_id, model_id, channel_slot, channel_name, channel_contact, channel_note,
+  input_price_milli, cache_write_price_milli, output_price_milli, cache_read_price_milli,
+  status, created_at, updated_at
+)
+SELECT q.merchant_id, q.model_id, 1, '默认渠道', COALESCE(m.contact, ''), q.channel_note,
+  q.input_price_milli, q.cache_write_price_milli, q.output_price_milli, q.cache_read_price_milli,
+  CASE WHEN m.status = 'active' AND m.hidden_at IS NULL THEN 'active' ELSE 'hidden' END,
+  q.updated_at, q.updated_at
+FROM quotes q JOIN merchants m ON m.id = q.merchant_id
+JOIN models model ON model.id = q.model_id;

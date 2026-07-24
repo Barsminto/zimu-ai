@@ -15,7 +15,8 @@ const countSql = `SELECT
   (SELECT COUNT(*) FROM merchants m JOIN users u ON u.id = m.user_id WHERE u.email LIKE '%@example.test') AS merchants,
   (SELECT COUNT(*) FROM quotes q JOIN merchants m ON m.id = q.merchant_id JOIN users u ON u.id = m.user_id WHERE u.email LIKE '%@example.test') AS quotes,
   (SELECT COUNT(*) FROM quotes q JOIN merchants m ON m.id = q.merchant_id JOIN users u ON u.id = m.user_id WHERE u.email LIKE '%@example.test' AND m.status = 'active') AS publicQuotes,
-  (SELECT COUNT(*) FROM quotes q JOIN merchants m ON m.id = q.merchant_id JOIN users u ON u.id = m.user_id WHERE u.email LIKE '%@example.test' AND m.status = 'pending') AS pendingQuotes;`;
+  (SELECT COUNT(*) FROM quotes q JOIN merchants m ON m.id = q.merchant_id JOIN users u ON u.id = m.user_id WHERE u.email LIKE '%@example.test' AND m.status = 'pending') AS pendingQuotes,
+  (SELECT COUNT(*) FROM offers o JOIN merchants m ON m.id = o.merchant_id JOIN users u ON u.id = m.user_id WHERE u.email LIKE '%@example.test') AS offers;`;
 
 async function runWrangler(args) {
   return execFileAsync("npx", ["wrangler", ...args], {
@@ -63,6 +64,17 @@ test("local D1 seed is idempotent and preserves review visibility", async (t) =>
     "--persist-to",
     persistTo,
     "--file",
+    "migrations/0002_catalog_offers_admin.sql",
+    "--yes",
+  ]);
+  await runWrangler([
+    "d1",
+    "execute",
+    "model-market-db",
+    "--local",
+    "--persist-to",
+    persistTo,
+    "--file",
     "seeds/local-test-data.sql",
     "--yes",
   ]);
@@ -79,7 +91,7 @@ test("local D1 seed is idempotent and preserves review visibility", async (t) =>
   ]);
 
   const [counts] = await query(persistTo, countSql);
-  assert.deepEqual(counts, { users: 4, merchants: 4, quotes: 16, publicQuotes: 12, pendingQuotes: 4 });
+  assert.deepEqual(counts, { users: 4, merchants: 4, quotes: 16, publicQuotes: 12, pendingQuotes: 4, offers: 16 });
 
   const [fixture] = await query(
     persistTo,

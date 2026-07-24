@@ -5,15 +5,16 @@
 ## 当前版本
 
 - 公开报价市场：浏览供应商的 GPT-5.6 系列报价，包含输入、缓存写入、输出和缓存读取价格。
-- 商户中心：邮箱注册、登录、维护每个模型的一条报价与公开联系方式。
-- 注册防护：Cloudflare Turnstile、D1 频率限制、PBKDF2 密码哈希、HttpOnly 会话 Cookie 和待审核商户状态。
-- 本地静态预览会继续显示假数据；部署并完成 D1 配置后，市场从 `GET /api/quotes` 读取真实数据。
+- 商户中心：邮箱注册、登录、维护每个模型最多两个渠道，支持上架、下架、恢复和永久删除。
+- 管理后台：管理员维护品牌和模型，暂停/恢复或删除商户，治理渠道并查看审计日志。
+- 注册防护：Cloudflare Turnstile、D1 频率限制、PBKDF2 密码哈希和 HttpOnly 会话 Cookie。
+- 市场目录从 `GET /api/catalog` 和 `GET /api/quotes` 读取 D1 中的真实数据；没有自动生成的前端假数据。
 - 中文 / English 国际化，日间 / 夜间主题切换，夜间主题使用独立高对比度颜色令牌。
 - 价格单位：人民币 / 1M Tokens。
 
 ## 重要限制
 
-该项目不处理支付或担保交易。商户报价和联系方式由商户维护，上线时应开启待审核注册，并在 Cloudflare 配置 WAF 速率限制规则。
+该项目不处理支付或担保交易。商户报价和联系方式由商户维护。下架是可恢复的软删除，删除会保留审计快照但不保留业务记录。
 
 ## 本地预览
 
@@ -25,7 +26,7 @@ npx wrangler d1 execute model-market-db --local --file seeds/local-test-data.sql
 npx wrangler dev --local --port 4186
 ```
 
-Seed 可以重复执行，不会产生重复商户或报价。它只用于本地开发，**不要为该文件添加 `--remote`**。
+Seed 可以重复执行，不会产生重复商户或报价。它只用于本地开发，**不要为该文件添加 `--remote`**。生产演示数据必须单独使用 `seeds/production-demo-data.sql`，不会随部署自动导入。
 
 本地测试账号：
 
@@ -70,6 +71,26 @@ directory = "."
 
 ```bash
 npx wrangler deploy
+```
+
+首次上线或更新业务表结构时，先单独应用迁移，再部署 Worker：
+
+```bash
+npx wrangler d1 migrations apply model-market-db --remote
+npx wrangler deploy --keep-vars
+```
+
+初始化管理员账号（不会通过公开注册创建管理员）：
+
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='ChangeMe2026!' node scripts/bootstrap-admin.mjs --local
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='ChangeMe2026!' node scripts/bootstrap-admin.mjs --remote --confirm-remote
+```
+
+如需上线演示数据，必须由操作人员显式执行；清理时按 SQL 文件末尾注释执行删除语句：
+
+```bash
+npx wrangler d1 execute model-market-db --remote --file seeds/production-demo-data.sql --yes
 ```
 
 不要使用 `wrangler pages deploy`。现有 Cloudflare Web Analytics beacon 保留在 `index.html`，在页面 `load` 后加载，仅用于页面访问统计；不应将其描述为商户数据或报价数据存储。
