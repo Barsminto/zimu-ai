@@ -1,11 +1,11 @@
 PRAGMA foreign_keys = ON;
 
 -- This file is intentionally explicit. It is never loaded by deploy.
--- Demo password for both accounts: LocalDemo2026!
+-- The demo users use random one-way password records and are not login accounts.
 INSERT INTO users (email, password_hash, password_salt, role, created_at)
 VALUES
-  ('demo-aurora@example.test', 'WcXj47biHHu5UvsTFKld83q0wJ3yABq85VNl-uY9Fxw', 'bG9jYWwtc2VlZC0yMDI2IQ', 'merchant', 1784534400000),
-  ('demo-northstar@example.test', 'WcXj47biHHu5UvsTFKld83q0wJ3yABq85VNl-uY9Fxw', 'bG9jYWwtc2VlZC0yMDI2IQ', 'merchant', 1784534400000)
+  ('demo-aurora@example.test', 'hiCftKkDW7FHBHs_4IoPl_Idan-Tazfeyyxl63ePhQg', 'tsPV-xjj1QO7cvqKuEhiOA', 'merchant', 1784534400000),
+  ('demo-northstar@example.test', 'g_ANDBJgqGk487UxeTjhbMPMYdD57JnCDqNQ8OMVzgQ', 'F-AzMfuEK0eE2gPZDB7STg', 'merchant', 1784534400000)
 ON CONFLICT(email) DO UPDATE SET password_hash = excluded.password_hash, password_salt = excluded.password_salt, role = 'merchant';
 
 INSERT INTO merchants (user_id, name, contact, status, is_demo, created_at, updated_at)
